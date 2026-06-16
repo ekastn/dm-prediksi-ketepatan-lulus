@@ -40,28 +40,35 @@ Project ini mengikuti framework **CRISP-DM** (Cross-Industry Standard Process fo
 prediksi-ketepatan-lulus/
 │
 ├── 1-business-understanding/
-│   └── Proposal Data Mining.pdf        # Proposal yang disetujui dosen
+│   └── Proposal Data Mining.pdf
 │
 ├── 2-data-understanding/
-│   ├── README.md                        # Index fase Data Understanding
-│   ├── exploration-log.md               # Log kronologis eksplorasi (narasi jujur)
-│   ├── 01-data-profiling.ipynb          # Notebook replay profiling interaktif
-│   ├── 01-schema-discovery.sql          # SQL: penemuan tabel kunci
-│   ├── 02-student-profiling.sql         # SQL: profil mahasiswa & demografi
-│   ├── 03-academic-profiling.sql        # SQL: profil IPSIPK & NULL rate
-│   ├── 04-grade-profiling.sql           # SQL: profil Qnilai_mhs & kehadiran
-│   ├── 05-data-quality.sql              # SQL: deteksi anomali & zero-variance
-│   ├── 06-table-mapping.md              # Dokumentasi: relasi tabel & excluded tables
-│   └── ddl.csv                          # Referensi DDL (skema database lengkap)
+│   ├── README.md
+│   ├── exploration-log.md
+│   ├── 06-table-mapping.md
+│   ├── 01-data-profiling.ipynb
+│   ├── 01-schema-discovery.sql
+│   ├── 02-student-profiling.sql
+│   ├── 03-academic-profiling.sql
+│   ├── 04-grade-profiling.sql
+│   ├── 05-data-quality.sql
+│   └── ddl.csv
 │
 ├── 3-data-preparation/
-│   ├── extract_dataset.py               # Script ETL + feature engineering
-│   ├── dataset.csv                      # Full dataset (608 rows × 27 kolom)
-│   ├── dataset_train.csv                # Train: angkatan ≤ 2021 (377 rows)
-│   └── dataset_test.csv                 # Test:  angkatan > 2021 (231 rows)
+│   ├── extract_dataset.py               # ETL + feature engineering
+│   ├── dataset.csv / _train.csv / _test.csv  # Raw extracted
+│   ├── 02-eda.ipynb / 02-eda.py         # EDA (notebook + script)
+│   ├── 02-eda-findings.md               # Hasil analisis EDA
+│   ├── eda-charts/                      # 16 PNG visualisasi EDA
+│   ├── 03-preprocessing-plan.md         # Rencana preprocessing
+│   ├── 03-preprocessing.ipynb / .py     # Pipeline preprocessing
+│   ├── 04-dataset-overview.ipynb        # Overview dataset bersih
+│   └── dataset_clean.csv                # Dataset siap modeling (608×17)
 │
-├── .venv/                               # Python virtual environment (pymssql)
-└── README.md                            # File ini
+├── 4-modeling/                          # Fase 4 — BELUM ADA
+├── 5-evaluation/                        # Fase 5 — BELUM ADA
+├── 6-deployment/                        # Fase 6 — BELUM ADA
+└── README.md
 ```
 
 ## Dataset Summary
@@ -69,61 +76,56 @@ prediksi-ketepatan-lulus/
 | Metrik | Nilai |
 |--------|-------|
 | **Total rows** | 608 |
-| **Features** | 26 + 1 target (27 kolom) |
+| **Features** | 16 + 1 target (17 kolom) |
 | **Target** | `1` = Tepat Waktu, `0` = Tidak Tepat |
-| **Train** | 377 (angkatan ≤ 2021) |
-| **Test** | 231 (angkatan > 2021) |
-| **Class imbalance** | 11.2% negative |
+| **Class imbalance** | 11.2% negative (train 3.7%, test 23.4%) |
+| **NULLs** | 0 (semua numerik) |
 
-| Program | Tepat Waktu | Tidak | % Neg |
-|---------|------------|-------|-------|
-| AP (D3) | 137 | 10 | 6.8% |
-| IH (S1) | 403 | 58 | 12.6% |
-
-### Fitur (26 kolom)
+### Fitur (16 fitur + 1 target)
 
 | Kategori | Fitur |
 |----------|-------|
-| **Identitas** | `student_id`, `angkatan` |
-| **Demografi** | `program`, `jenis_kelamin`, `id_agama` |
-| **IPS Semester** | `ips_sem1` – `ips_sem4` |
-| **SKS & Kumulatif** | `sks_sem1` – `sks_sem4`, `ipk_sem4`, `total_sks_lulus_sem4` |
+| **Identitas** | `angkatan` |
+| **Program** | `program` (0=AP/D3, 1=IH/S1) |
+| **IPS Semester** | `ips_sem1`, `ips_sem2`, `ips_sem3` |
+| **SKS Semester** | `sks_sem1`, `sks_sem2`, `sks_sem3` |
 | **Nilai MK** | `failed_courses`, `failed_in_sem1`, `repeated_courses` |
-| **Kehadiran** | `avg_attendance` (53% missing) |
-| **Derived** | `ips_trend`, `avg_ips`, `ips_std`, `ips_max`, `ips_min`, `sks_completion_ratio`, `semester_count` |
+| **Derived** | `ips_trend`, `avg_ips`, `ips_std`, `ips_min`, `sks_completion_ratio` |
 
 ## Data Quality Notes
 
 - **Database hasil migrasi vendor** — banyak data historis tidak lengkap
-- **Angkatan 2014-2015** excluded: IPSIPK seluruhnya NULL (sistem lama tidak mencatat)
-- **Kehadiran 53% missing** — fitur `avg_attendance` sparse, di-supplement dengan `Kul_Kehadiran`
-- **5 fitur zero-variance dihapus**: `status_masuk`, `penerima_kps`, `id_jenis_daftar`, `id_jalur_masuk`, `JalurMasuk`
+- **Angkatan 2014-2015** excluded: IPSIPK seluruhnya NULL
+- **TSKS anomaly** — angkatan 2020+ menyimpan SKS kumulatif (bukan per-semester) di `IPSIPK`. Fixed dengan fallback ke `Qnilai_mhs`, di-cap 1-20 MK/semester, outlier → imputasi median.
+- **IPS=0.0 dianggap NULL** — 36% mahasiswa punya minimal satu IPS=0.0 (placeholder legacy), dibersihkan saat preprocessing
+- **Kehadiran di-drop** — 53% missing + korelasi r≈0 dengan target
+- **Fitur di-drop pasca-EDA**: `ips_sem4`, `sks_sem4`, `ipk_sem4` (data leakage), `semester_count`, `ips_max` (tidak mendiskriminasi), `id_agama`, `jenis_kelamin` (r≈0), `avg_attendance` (53% missing)
 
 ## Quick Start
 
 ```bash
-# Setup virtual environment
-python3 -m venv .venv
-.venv/bin/pip install pymssql
+# Install dependencies
+pip install pandas numpy matplotlib seaborn missingno scikit-learn pymssql
 
-# Buka notebook profiling
-# Buka 2-data-understanding/01-data-profiling.ipynb di VS Code / Jupyter
-
-# Jalankan ulang ekstraksi dataset
+# Extract dataset (requires SQL Server access)
 cd 3-data-preparation
-../.venv/bin/python3 extract_dataset.py
+python extract_dataset.py
+
+# Run preprocessing (uses extracted dataset_clean.csv)
+python 03-preprocessing.py
 ```
 
 ## Status Deliverables
 
 | # | Deliverable | Status |
 |---|-------------|--------|
-| 1 | Proposal singkat | ✅ `1-business-understanding/` |
-| 2 | Dataset + deskripsi variabel | ✅ `3-data-preparation/` |
-| 3 | Notebook preprocessing & modeling | ⬜ Fase 4 |
-| 4 | Laporan formal Bab I–V | ⬜ |
-| 5 | Slide presentasi | ⬜ |
-| 6 | Artikel IEEE | ⬜ |
+| 1 | Proposal singkat | ✅ |
+| 2 | Dataset + deskripsi variabel | ✅ |
+| 3 | Notebook preprocessing | ✅ |
+| 4 | Modeling (Decision Tree) | ⬜ Next Phase |
+| 5 | Laporan formal Bab I–V | ⬜ |
+| 6 | Slide presentasi | ⬜ |
+| 7 | Artikel IEEE | ⬜ |
 
 ## Tim
 

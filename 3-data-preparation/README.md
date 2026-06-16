@@ -71,63 +71,81 @@ cd 3-data-preparation
 ../.venv/bin/python3 extract_dataset.py
 ```
 
-## Feature Specification (27 kolom)
+## Preprocessing Pipeline
 
-### 1. Identitas & Demografi (dari `tblMHS`)
+Setelah ekstraksi, dataset melalui preprocessing pipeline (`03-preprocessing.py` / `03-preprocessing.ipynb`):
 
-| # | Feature | Type | Description |
-|---|---------|------|-------------|
-| 1 | `student_id` | string | NIM |
-| 2 | `angkatan` | int | Tahun masuk |
-| 3 | `program` | categorical | `AP` = D3, `IH` = S1 |
-| 4 | `jenis_kelamin` | categorical | `L` / `P` |
-| 5 | `id_agama` | categorical | 1=Islam, 2=Kristen, 3=Katolik, 4=Hindu, etc |
+```
+dataset.csv (608×27, raw, with NULLs)
+    │
+    ├─ 1. Replace system zeros (IPS=0.0 → NaN)
+    │       170 ips_sem1 zeros terkontaminasi
+    │
+    ├─ 2. Drop 11 kolom (leakage + low-signal + redundant)
+    │       student_id, ips_sem4, sks_sem4, ipk_sem4, semester_count,
+    │       ips_max, total_sks_lulus_sem4, avg_attendance,
+    │       id_agama, jenis_kelamin, has_attendance
+    │
+    ├─ 3. Median imputation per angkatan
+    │       ips_sem1-3 + sks_sem1-3
+    │
+    ├─ 4. Recompute derived features
+    │       ips_trend, avg_ips, ips_std, ips_min, sks_completion_ratio
+    │
+    ├─ 5. Encode categorical
+    │       program: AP→0, IH→1
+    │
+    └─ Output: dataset_clean.csv (608×17, 0 NULLs, semua numerik)
+```
 
-### 2. Performa Akademik Semester 1-4 (dari `IPSIPK`)
+### Preprocessing Decisions (based on EDA)
 
-| # | Feature | Description |
-|---|---------|-------------|
-| 6-9 | `ips_sem1` - `ips_sem4` | Indeks Prestasi Semester |
-| 10 | `ipk_sem4` | IPK kumulatif sampai semester terakhir yang tersedia (maksimal smt 4) |
-| 11-14 | `sks_sem1` - `sks_sem4` | Total SKS yang diambil per semester |
-| 15 | `total_sks_lulus_sem4` | Total SKS kumulatif lulus sampai semester terakhir |
+| Keputusan | Fitur | Alasan |
+|-----------|-------|--------|
+| Drop | `ips_sem4`, `sks_sem4` | Data leakage (r=+0.877 dengan target) |
+| Drop | `ipk_sem4` | Redundant dengan avg_ips |
+| Drop | `semester_count` | Circular dengan target |
+| Drop | `ips_max` | Tidak mendiskriminasi (r≈0) |
+| Drop | `avg_attendance` | 53% missing + r=-0.016 |
+| Drop | `id_agama` | r=0.031, hanya 4 Hindu |
+| Drop | `jenis_kelamin` | r=0.050, tidak memisahkan kelas |
+| Clean | `ips_sem1-4` (IPS=0.0→NaN) | 36% mahasiswa punya 0.0 (placeholder legacy) |
+| Impute | `ips_sem1-3`, `sks_sem1-3` | Median per angkatan (robust ke outlier) |
 
-**Catatan:** Mahasiswa dengan hanya 3 semester data akan memiliki `ips_sem4` dan `sks_sem4` = NULL. Model/preprocessing harus handle missing values.
+## Final Feature Specification (17 kolom — dataset_clean.csv)
 
-### 3. Performa Matakuliah (dari `Qnilai_mhs`)
+### 1. Identitas & Program
 
-| # | Feature | Description |
-|---|---------|-------------|
-| 16 | `failed_courses` | Jumlah MK dengan nilai E, D, atau T dalam 4 semester pertama |
-| 17 | `failed_in_sem1` | Jumlah MK gagal di semester 1 saja (early warning signal) |
-| 18 | `repeated_courses` | Jumlah MK yang muncul >1 kali (mengulang) |
+| # | Feature | Type | Range | Description |
+|---|---------|------|-------|-------------|
+| 1 | `angkatan` | int | 2015–2023 | Tahun masuk |
+| 2 | `program` | 0/1 | 0–1 | 0=AP(D3), 1=IH(S1) |
 
-### 4. Kehadiran (dari `Qnilai_mhs` + `Kul_Kehadiran`)
+### 2. Performa Akademik Semester 1-3
 
-| # | Feature | Description |
-|---|---------|-------------|
-| 19 | `avg_attendance` | Rata-rata persentase kehadiran (0-100). **52.8% missing** |
+| # | Feature | Range | Description |
+|---|---------|-------|-------------|
+| 3-5 | `ips_sem1` – `ips_sem3` | 0.3–4.0 | Indeks Prestasi Semester (imputed) |
+| 6-8 | `sks_sem1` – `sks_sem3` | 1–24 | Jumlah SKS diambil per semester (imputed) |
 
-### 5. Derived Features
+### 3. Performa Matakuliah
 
-| # | Feature | Formula | Description |
-|---|---------|---------|-------------|
-| 20 | `ips_trend` | `ips_last - ips_first` | Tren performa: positif = membaik |
-| 21 | `avg_ips` | `mean(ips_sem1..n)` | Rata-rata IPS semester yang tersedia |
-| 22 | `ips_std` | `stdev(ips)` | Volatilitas IPS |
-| 23 | `ips_max` | `max(ips)` | IPS tertinggi |
-| 24 | `ips_min` | `min(ips)` | IPS terendah |
-| 25 | `sks_completion_ratio` | `total_sks / 80` | Rasio SKS terhadap ekspektasi (~20/smt) |
-| 26 | `semester_count` | `count(IPSIPK)` | Jumlah semester yang sudah ditempuh |
+| # | Feature | Range | Description |
+|---|---------|-------|-------------|
+| 9 | `failed_courses` | 0–18 | Jumlah MK gagal (E/D/T) dalam 3 semester pertama |
+| 10 | `failed_in_sem1` | 0–7 | Jumlah MK gagal di semester 1 saja |
+| 11 | `repeated_courses` | 0–12 | Jumlah MK diulang |
 
-### 6. Target Variable
+### 4. Derived Features
 
-| # | Feature | Value | Criteria |
-|---|---------|-------|----------|
-| 27 | `target` | `1` | **Tepat Waktu** — Status `L`/`Lulus` DAN total semester ≤ durasi normal |
-| | | `0` | **Tidak Tepat** — Status `Keluar` (dropout), atau lulus > durasi normal, atau Aktif/Cuti melebihi durasi |
-
-**Durasi normal:** IH (S1) = 8 semester, AP (D3) = 6 semester
+| # | Feature | Range | Description |
+|---|---------|-------|-------------|
+| 12 | `ips_trend` | -2.8–2.5 | ips_sem3 - ips_sem1 (positif=membaik) |
+| 13 | `avg_ips` | 1.7–3.9 | Rata-rata IPS 3 semester |
+| 14 | `ips_std` | 0–1.8 | Volatilitas IPS |
+| 15 | `ips_min` | 0.3–3.8 | IPS terendah |
+| 16 | `sks_completion_ratio` | 0.1–1.1 | (sks1+sks2+sks3) / 60 |
+| 17 | `target` | 0/1 | 1=Tepat Waktu, 0=Tidak Tepat |
 
 ## Train/Test Split Design
 
@@ -204,27 +222,23 @@ Database hasil migrasi vendor. Dampak pada dataset:
 
 | File | Rows | Description |
 |------|------|-------------|
-| `dataset.csv` | 608 | Full dataset (semua angkatan dengan outcome known) |
+| `dataset.csv` | 608 | Full dataset (raw extraction, 27 cols) |
 | `dataset_train.csv` | 377 | Train: angkatan ≤ 2021 |
-| `dataset_test.csv` | 231 | Test: angkatan > 2021 (2022-2023) |
+| `dataset_test.csv` | 231 | Test: angkatan > 2021 |
+| `dataset_clean.csv` | 608 | Final dataset pasca-preprocessing (17 cols, 0 NULLs) |
+| `02-eda.ipynb` / `.py` | — | EDA notebook + script |
+| `02-eda-findings.md` | — | Dokumentasi temuan EDA |
+| `03-preprocessing-plan.md` | — | Rencana preprocessing |
+| `03-preprocessing.ipynb` / `.py` | — | Notebook + script preprocessing |
+| `04-dataset-overview.ipynb` | — | Overview dataset bersih (presentasi) |
+| `eda-charts/` | — | 16 visualisasi PNG dari EDA |
 
-## Next Steps (untuk fase modeling)
+## Next Steps (Fase 4: Modeling)
 
-1. **Encoding categorical features** — `program` (AP/IH), `jenis_kelamin` (L/P), `id_agama` perlu di-encode (one-hot / label / ordinal)
-
-2. **Handle class imbalance** — 11.2% kelas negatif (train: 3.7%, test: 23.4%). Opsi:
-   - SMOTE / oversampling untuk kelas "tidak tepat waktu"
-   - Class weighting di Decision Tree
-   - Cost-sensitive learning (FN lebih mahal dari FP)
-
-3. **Handle missing values** — terutama `avg_attendance` (53%), `ips_sem4` (31%), `ips_sem1` (28%). Opsi:
-   - Simple imputation (mean/median per program)
-   - KNN imputation
-   - Gunakan algoritma yang native support missing (C4.5, implementasi CART tertentu)
-   - Drop `avg_attendance` jika ternyata tidak signifikan
-
-4. **Feature selection** — 26 fitur untuk 68 sampel negatif, perlu seleksi fitur atau regularization untuk hindari overfitting
-
-5. **Hyperparameter tuning** — Grid search untuk `max_depth`, `min_samples_split`, `criterion` (gini/entropy)
-
-6. **Model comparison** — Bandingkan Decision Tree dengan Random Forest dan Naive Bayes sebagai baseline
+1. **Split dataset bersih** — train (angkatan ≤2021) vs test (angkatan >2021) dari `dataset_clean.csv`
+2. **Handle class imbalance** — train hanya 3.7% negatif, pertimbangkan SMOTE atau class_weight
+3. **Decision Tree baseline** — latih model awal dengan default hyperparameter
+4. **Hyperparameter tuning** — GridSearchCV untuk `max_depth`, `min_samples_split`, `criterion`
+5. **Cross-validation** — stratified k-fold pada train set
+6. **Model comparison** — bandingkan dengan Random Forest dan Naive Bayes
+7. **Feature importance** — analisis fitur mana yang paling berpengaruh
