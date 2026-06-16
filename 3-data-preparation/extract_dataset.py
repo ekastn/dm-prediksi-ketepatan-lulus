@@ -10,7 +10,7 @@ Improvements over v1:
   - Reclassify Aktif/Cuti beyond expected duration as target=0
 
 Sumber: SQL Server (LITIGASI) — hasil migrasi vendor.
-Usage: .venv/bin/python3 extract_dataset.py
+Usage: ../.venv/bin/python3 extract_dataset.py
 """
 import pymssql
 import csv
@@ -33,7 +33,7 @@ PROGRAM_DURATION = {"IH": 8, "AP": 6}
 EXPECTED_SKS_4_SEMESTERS = 80
 MIN_SEMESTERS = 3  # lowered from 4
 MIN_VALID_IPS = 1  # lowered from 2
-OUTPUT_PATH = "/home/fzymorn/kuliah/semester-06/data-mining/prediksi-ketepatan-lulus/dataset.csv"
+OUTPUT_PATH = "/home/fzymorn/kuliah/semester-06/data-mining/prediksi-ketepatan-lulus/3-data-preparation/dataset.csv"
 
 
 def parse_periode(p):
