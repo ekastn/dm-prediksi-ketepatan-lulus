@@ -246,3 +246,17 @@ ipk_sem4 sangat berkorelasi dengan avg_ips (r=0.83) dan ips_sem4 (r=0.86) — re
 14. `ips_std`
 15. `ips_min`
 16. `sks_completion_ratio`
+
+---
+
+### I. SKS Data Quality Issue (Post-EDA Discovery)
+
+Saat EDA lanjutan, ditemukan anomali SKS:
+- `sks_sem1` max=133, `sks_sem2` max=99 (sebelum fix)
+- 310 baris (13%) di 4 semester pertama memiliki TSKS >30
+- Terkonsentrasi di angkatan 2020+ (database menyimpan kumulatif, bukan per-semester)
+- Bahkan Qnilai_mhs juga terkontaminasi untuk mahasiswa ini (50+ MK/semester)
+
+**Fix:** Add fallback logic di `extract_dataset.py` — derive dari distinct Kode_MK dengan cap 1–20, sisanya NULL → median imputation.
+
+**Result:** max SKS sekarang ≤24 di semua semester.

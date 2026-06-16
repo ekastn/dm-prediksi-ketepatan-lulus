@@ -78,14 +78,54 @@ def compute_features(student, ipsipk_records, nilai_records, kehadiran_records):
     first_n = ipsipk_sorted[:4]  # up to 4 semesters for feature extraction
 
     # === IPS and SKS per semester (1-4), NULL if not available ===
+    # Detect abnormal TSKS: some 2020+ angkatan have cumulative total instead of
+    # per-semester values (database inconsistency, TSKS stored as program total ~131).
+    # Check ALL first 4 semesters — some students have normal sem1 but bug sem2.
+    abnormal_tsks = any(
+        i < len(first_n)
+        and first_n[i]["tsks"] is not None
+        and first_n[i]["tsks"] > 30
+        for i in range(min(len(first_n), 4))
+    )
+
     for i in range(4):
         idx = i + 1
+        # IPS: always from IPSIPK
         if i < len(first_n) and first_n[i]["ips"] is not None:
             f[f"ips_sem{idx}"] = first_n[i]["ips"]
         else:
             f[f"ips_sem{idx}"] = None
-        if i < len(first_n) and first_n[i]["tsks"] is not None:
-            f[f"sks_sem{idx}"] = first_n[i]["tsks"]
+
+        # SKS: derive from Qnilai_mhs if TSKS is abnormal, else use IPSIPK
+        if i < len(first_n):
+            if abnormal_tsks:
+                # Count distinct courses in this semester from Qnilai_mhs.
+                # Note: Qnilai_mhs may also have bulk-loaded data (50+ MK/sem),
+                # so cap at reasonable range (1-20); outliers → NULL → imputation.
+                boundary = (first_n[i]["thn_akademik"], first_n[i]["periode"])
+                prev_boundary = (
+                    (first_n[i - 1]["thn_akademik"], first_n[i - 1]["periode"])
+                    if i > 0 else ("", 0)
+                )
+                courses_in_sem = set(
+                    n["kode_mk"] for n in nilai_records
+                    if n["kode_mk"]
+                    and (n["thn_akademik"], n["periode"]) <= boundary
+                    and (
+                        i == 0
+                        or (n["thn_akademik"], n["periode"]) > prev_boundary
+                    )
+                )
+                n_courses = len(courses_in_sem)
+                # Cap at reasonable range: 1-20 courses per semester
+                if 1 <= n_courses <= 20:
+                    f[f"sks_sem{idx}"] = n_courses
+                else:
+                    f[f"sks_sem{idx}"] = None
+            elif first_n[i]["tsks"] is not None:
+                f[f"sks_sem{idx}"] = first_n[i]["tsks"]
+            else:
+                f[f"sks_sem{idx}"] = None
         else:
             f[f"sks_sem{idx}"] = None
 

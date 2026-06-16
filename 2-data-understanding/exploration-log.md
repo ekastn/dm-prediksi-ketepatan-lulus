@@ -338,6 +338,31 @@ Fitur `status_masuk`, `penerima_kps`, `id_jenis_daftar`, `id_jalur_masuk` di-dro
 
 ---
 
+## Round 11: SKS Data Quality Bug (Post-Extraction Analysis)
+
+### 11.1 Discovery
+Dataset final menunjukkan `sks_sem1` max=133, `sks_sem2` max=99 — tidak mungkin
+dalam 1 semester.
+
+### 11.2 Investigation
+Query ke IPSIPK:
+- 207422012 (Angk 2020 IH): Sem#1 TSKS=131, TTSKS=131 → kumulatif, bukan per-semester
+- 207422016 (Angk 2020 IH): Sem#1 TSKS=112, TTSKS=112 → kumulatif
+- 2227421001 (Angk 2022 IH): Sem#1 TSKS=4, Sem#2 TSKS=97 → mix normal + kumulatif
+
+310 baris di 4 semester pertama memiliki TSKS >30. Semua dari angkatan 2020+.
+
+### 11.3 Attempted fix via Qnilai_mhs
+Qnilai_mhs juga terkontaminasi: 207422012 punya 54 MK distinct di sem1.
+Tidak bisa dipakai sebagai fallback langsung.
+
+### 11.4 Solution
+Deteksi: jika ada TSKS >30 di 4 semester pertama → flag abnormal.
+Fallback: count distinct Kode_MK dari Qnilai_mhs, cap 1-20.
+Di luar range → NULL → diimputasi (median per angkatan) di preprocessing.
+
+---
+
 ## Timeline Summary
 
 | Waktu (approx) | Aktivitas | Tool |

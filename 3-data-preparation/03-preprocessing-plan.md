@@ -7,6 +7,22 @@ Input: `dataset.csv` (608 rows) | Output: `dataset_clean.csv`
 
 ## Step-by-Step Pipeline
 
+### Step 0: Fix TSKS Anomaly in extract_dataset.py
+
+**Masalah:** Database `LITIGASI` menyimpan data SKS tidak konsisten di tabel `IPSIPK`:
+- Mahasiswa angkatan 2015–2019: `TSKS` = SKS per semester (nilai wajar: 4–24)
+- Mahasiswa angkatan 2020+: `TSKS` = total SKS kumulatif (nilai 80–133, salah konteks)
+- 310 baris dataset (13%) terpengaruh — nilai SKS sem1-2 mencapai 133/99
+
+**Investigasi:** Query langsung ke database menunjukkan:
+- 207422012: sem1 TSKS=131, TTSKS=131 (nilai kumulatif, bukan per-semester)
+- 2227421001: sem1 TSKS=4 (normal), sem2 TSKS=97 (kumulatif)
+- Tidak bisa di-fix lewat Qnilai_mhs karena data nilai juga terkontaminasi (50+ MK/semester)
+
+**Solusi:** Deteksi otomatis — jika ada TSKS >30 di 4 semester pertama, flag sebagai abnormal. Untuk mahasiswa abnormal, derive SKS dari jumlah distinct Kode_MK di Qnilai_mhs, dengan cap 1–20 MK/semester. Nilai di luar range → NULL → diimputasi median per angkatan di step selanjutnya.
+
+**Hasil:** 0 nilai SKS >30 di dataset final. Imputasi median menangani NULL yang tersisa.
+
 ```
 dataset.csv (608 rows, 27 kolom, with NULLs + system zeros)
     │
