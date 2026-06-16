@@ -212,6 +212,9 @@ ipk_sem4 sangat berkorelasi dengan avg_ips (r=0.83) dan ips_sem4 (r=0.86) — re
 | `ipk_sem4` | Redundant dengan avg_ips |
 | `semester_count` | Circular — target didefinisikan sebagian darinya |
 | `ips_max` | Tidak mendiskriminasi (r≈0) |
+| `id_agama` | r=0.031, near-zero correlation, hanya 4 Hindu, no signal |
+| `jenis_kelamin` | r=0.050, no class separation |
+| `has_attendance` | 4.7% difference only, weak signal, 53% missing |
 | `avg_attendance` | 53% missing + r≈0 |
 | `total_sks_lulus_sem4` | Redundant dengan sks_completion_ratio |
 
@@ -224,29 +227,22 @@ ipk_sem4 sangat berkorelasi dengan avg_ips (r=0.83) dan ips_sem4 (r=0.86) — re
 ### Encoding
 
 - `program`: Label (AP=0, IH=1)
-- `jenis_kelamin`: Label (L=0, P=1)
-- `id_agama`: Keep as-is (1/2/4)
 
-### Feature yang Dipertahankan (~14 fitur)
+### Feature yang Dipertahankan (~16 fitur)
 
 1. `angkatan`
 2. `program` (encoded)
-3. `jenis_kelamin` (encoded)
-4. `id_agama`
-5. `ips_sem1` (after 0→NaN + imputation)
-6. `ips_sem2`
-7. `ips_sem3`
-8. `sks_sem1`
-9. `sks_sem2`
-10. `sks_sem3`
-11. `failed_courses`
-12. `failed_in_sem1`
-13. `repeated_courses`
-14. `has_attendance` (flag 0/1, ganti avg_attendance)
-
-Derived features (recomputed after imputation):
-15. `ips_trend`
-16. `avg_ips`
-17. `ips_std`
-18. `ips_min`
-19. `sks_completion_ratio`
+3. `ips_sem1` (after 0→NaN + imputation)
+4. `ips_sem2`
+5. `ips_sem3`
+6. `sks_sem1`
+7. `sks_sem2`
+8. `sks_sem3`
+9. `failed_courses`
+10. `failed_in_sem1`
+11. `repeated_courses`
+12. `ips_trend`
+13. `avg_ips`
+14. `ips_std`
+15. `ips_min`
+16. `sks_completion_ratio`

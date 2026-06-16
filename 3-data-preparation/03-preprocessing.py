@@ -20,22 +20,20 @@ for col in ips_cols + sks_cols:
         print(f"  {col}: {zeros} zeros -> NaN")
 
 # ─────────────────────────────────────────────
-# Step 3: Create has_attendance + drop avg_attendance
+# Step 3: Drop redundant/leakage + low-signal features
 # ─────────────────────────────────────────────
-print("\n=== Step 3: Create has_attendance flag ===")
-df['has_attendance'] = df['avg_attendance'].notna().astype(int)
-att_present = df['has_attendance'].sum()
-att_missing = len(df) - att_present
-print(f"  has_attendance: {att_present} present, {att_missing} missing -> flagged")
-
-# ─────────────────────────────────────────────
-# Step 4: Drop redundant/leakage features
-# ─────────────────────────────────────────────
-print("\n=== Step 4: Drop redundant/leakage features ===")
+print("\n=== Step 3: Drop redundant/leakage + low-signal features ===")
 drop_cols = ['student_id', 'ips_sem4', 'sks_sem4', 'ipk_sem4',
-             'semester_count', 'ips_max', 'total_sks_lulus_sem4', 'avg_attendance']
-df.drop(columns=drop_cols, inplace=True)
-print(f"  Dropped {len(drop_cols)} columns. Shape: {df.shape}")
+             'semester_count', 'ips_max', 'total_sks_lulus_sem4',
+             'avg_attendance',
+             'id_agama', 'jenis_kelamin', 'has_attendance']
+# Drop only cols that exist (has_attendance may not exist yet)
+existing_drops = [c for c in drop_cols if c in df.columns]
+missing_drops = [c for c in drop_cols if c not in df.columns]
+if missing_drops:
+    print(f"  Note: {missing_drops} not found (already absent)")
+df.drop(columns=existing_drops, inplace=True)
+print(f"  Dropped {len(existing_drops)} columns. Shape: {df.shape}")
 
 # ─────────────────────────────────────────────
 # Step 5: Median imputation per angkatan
@@ -87,11 +85,7 @@ print(f"  sks_completion_ratio: min={df['sks_completion_ratio'].min():.4f}, max=
 # ─────────────────────────────────────────────
 print("\n=== Step 7: Encode categorical features ===")
 df['program'] = df['program'].map({'AP': 0, 'IH': 1})
-df['jenis_kelamin'] = df['jenis_kelamin'].map({'L': 0, 'P': 1})
-# id_agama stays as-is (1/2/4)
 print(f"  program       : {df['program'].unique()}")
-print(f"  jenis_kelamin : {df['jenis_kelamin'].unique()}")
-print(f"  id_agama      : {sorted(df['id_agama'].unique())}")
 
 # ─────────────────────────────────────────────
 # Step 8: Final verification
@@ -116,11 +110,10 @@ print(df.sample(3, random_state=42).to_string(index=False))
 # ─────────────────────────────────────────────
 print("\n=== Step 9: Reorder columns ===")
 expected_order = [
-    'angkatan', 'program', 'jenis_kelamin', 'id_agama',
+    'angkatan', 'program',
     'ips_sem1', 'ips_sem2', 'ips_sem3',
     'sks_sem1', 'sks_sem2', 'sks_sem3',
     'failed_courses', 'failed_in_sem1', 'repeated_courses',
-    'has_attendance',
     'ips_trend', 'avg_ips', 'ips_std', 'ips_min', 'sks_completion_ratio',
     'target'
 ]
