@@ -1,0 +1,19 @@
+|--- sks_sem2 <= 18.50
+|   |--- failed_courses <= 0.50
+|   |   |--- ips_sem1 <= 3.01
+|   |   |   |--- class: 1
+|   |   |--- ips_sem1 >  3.01
+|   |   |   |--- class: 1
+|   |--- failed_courses >  0.50
+|   |   |--- class: 1
+|--- sks_sem2 >  18.50
+|   |--- sks_sem3 <= 18.50
+|   |   |--- ips_std <= 0.29
+|   |   |   |--- class: 0
+|   |   |--- ips_std >  0.29
+|   |   |   |--- class: 0
+|   |--- sks_sem3 >  18.50
+|   |   |--- avg_ips <= 3.31
+|   |   |   |--- class: 1
+|   |   |--- avg_ips >  3.31
+|   |   |   |--- class: 1

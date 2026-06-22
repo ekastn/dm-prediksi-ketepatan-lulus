@@ -1,0 +1,16 @@
+|--- sks_completion_ratio <= 0.94
+|   |--- class: 1
+|--- sks_completion_ratio >  0.94
+|   |--- sks_sem3 <= 19.00
+|   |   |--- ips_std <= 0.29
+|   |   |   |--- class: 0
+|   |   |--- ips_std >  0.29
+|   |   |   |--- class: 0
+|   |--- sks_sem3 >  19.00
+|   |   |--- ips_sem3 <= 3.43
+|   |   |   |--- ips_trend <= 0.14
+|   |   |   |   |--- class: 1
+|   |   |   |--- ips_trend >  0.14
+|   |   |   |   |--- class: 1
+|   |   |--- ips_sem3 >  3.43
+|   |   |   |--- class: 1
