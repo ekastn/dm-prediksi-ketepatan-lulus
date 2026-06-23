@@ -5,7 +5,6 @@
 ---
 
 ## Struktur
-
 ```
 4-modeling/
 ├── README.md                         ← Dokumen ini
@@ -24,7 +23,6 @@
 ---
 
 ## Alur Eksperimen
-
 ```mermaid
 flowchart TD
     subgraph I1["Iterasi 1: Baseline"]
@@ -44,10 +42,6 @@ flowchart TD
         E1 -->|✅ Best| FINAL["MODEL FINAL<br/>max_depth=3<br/>F1=0.889"]
         E3 -->|"CV naik, test sama"| FINAL
     end
-
-    style E2 fill:#ffcdd2
-    style FINAL fill:#c8e6c9
-    style BL fill:#fff9c4
 ```
 
 ---
@@ -111,16 +105,12 @@ df[col] = df.groupby('angkatan')[col]       df[col] = df[col].fillna(df[col].med
 ---
 
 ## Iterasi 3: Hyperparameter Tuning (`3-hyperparameter-tuning/`)
-
 ```mermaid
 flowchart LR
     BL[(Baseline<br/>F1=0.867<br/>depth=8)] --> E1
     E1[01: Pre-Pruning<br/>GridSearchCV<br/>240 combos] -->|✅| FINAL[(Model Final<br/>F1=0.889<br/>depth=3)]
     E2[02: Feature Engineering<br/>4 binary flags] -->|❌ importance=0| X[Deleted]
     E3[03: max_features +<br/>min_impurity_decrease<br/>28 combos] -->|CV↑ test=| FINAL
-
-    style FINAL fill:#c8e6c9
-    style X fill:#ffcdd2
 ```
 
 ### Eksperimen 01: Pre-Pruning GridSearchCV ✅
@@ -218,7 +208,6 @@ DecisionTreeClassifier(
 | 6 | `ips_sem1` | 0.004 |
 
 ### Decision Rules
-
 ```
 |--- sks_sem2 <= 18.50
 |   |--- failed_courses <= 0.50

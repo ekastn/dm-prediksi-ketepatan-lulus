@@ -1,0 +1,17 @@
+Decision Rules - Temporal Model
+Trained on 377 samples (<=2021), tested on 231 (>2021)
+============================================================
+
+|--- failed_courses <= 1.50
+|   |--- sks_completion_ratio <= 0.97
+|   |   |--- ips_sem1 <= 3.01
+|   |   |   |--- class: 1
+|   |   |--- ips_sem1 >  3.01
+|   |   |   |--- class: 1
+|   |--- sks_completion_ratio >  0.97
+|   |   |--- ips_sem1 <= 3.26
+|   |   |   |--- class: 1
+|   |   |--- ips_sem1 >  3.26
+|   |   |   |--- class: 1
+|--- failed_courses >  1.50
+|   |--- class: 1

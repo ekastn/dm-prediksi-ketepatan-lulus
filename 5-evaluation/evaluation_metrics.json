@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "timestamp": "2026-06-23T12:03:26.449959",
+    "model": "DecisionTreeClassifier(max_depth=3, min_samples_leaf=10, random_state=42)",
+    "dataset": "dataset_clean.csv (608 rows, 14 features)"
+  },
+  "temporal_performance": {
+    "accuracy": 0.7662337662337663,
+    "precision0": 0.0,
+    "recall0": 0.0,
+    "f1_0": 0.0,
+    "auc": 0.7098242310106717
+  },
+  "stratified_performance": {
+    "accuracy": 0.9754098360655737,
+    "precision0": 0.9230769230769231,
+    "recall0": 0.8571428571428571,
+    "f1_0": 0.8888888888888888,
+    "auc": 0.9550264550264551
+  },
+  "cv_results": {
+    "accuracy": {
+      "mean": 0.9659535519125683,
+      "std": 0.018053097313574625,
+      "ci_low": 0.9624151448391076,
+      "ci_high": 0.9694919589860289
+    },
+    "precision0": {
+      "mean": 0.9104960317460317,
+      "std": 0.10278715981876319,
+      "ci_low": 0.8903497484215541,
+      "ci_high": 0.9306423150705092
+    },
+    "recall0": {
+      "mean": 0.7833333333333333,
+      "std": 0.13533782372497438,
+      "ci_low": 0.7568071198832383,
+      "ci_high": 0.8098595467834283
+    },
+    "f1_0": {
+      "mean": 0.8327124542124541,
+      "std": 0.0954595079495592,
+      "ci_low": 0.8140023906543405,
+      "ci_high": 0.8514225177705677
+    },
+    "roc_auc": {
+      "mean": 0.9700352733686067,
+      "std": 0.04004211573971185,
+      "ci_low": 0.9621870186836232,
+      "ci_high": 0.9778835280535902
+    }
+  },
+  "permutation_vs_mdi": {
+    "rank_correlation": 0.6749263711465147,
+    "rank_correlation_pvalue": 0.008091625281089542
+  },
+  "rule_stability": {
+    "root_stable": true,
+    "leaves_mean": 7.2,
+    "leaves_std": 0.4216370213557839
+  }
+}

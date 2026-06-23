@@ -10,6 +10,8 @@ Program Studi DIV Teknik Informatika — Universitas Logistik dan Bisnis Interna
 
 Penelitian ini membangun model klasifikasi Decision Tree untuk memprediksi ketepatan lulus mahasiswa program AP (Administrasi Peradilan D3) dan IH (Ilmu Hukum S1) berdasarkan data performa akademik tiga semester awal. Dataset terdiri dari 608 mahasiswa angkatan 2015–2023 dengan 14 fitur prediktor (setelah drop fitur leakage) dan target biner (Tepat Waktu / Tidak Tepat). Setelah 3 iterasi tuning, model terbaik yang diperoleh adalah **Decision Tree dengan max_depth=3 dan min_samples_leaf=10**, mencapai **F1-score 0.889, precision 0.923, recall 0.857, dan AUC 0.924** pada stratified test set. Overfitting berhasil dieliminasi (train-CV gap mendekati nol) dan decision rules yang dihasilkan ringkas serta interpretable (depth 3, 7 leaves).
 
+Namun, **validasi temporal** (train ≤2021, test >2021) mengungkapkan bahwa model **gagal total pada skenario deployment** — recall(0)=0.000, F1(0)=0.000. Dengan hanya 14 sampel negatif di training temporal, tree tidak bisa membentuk leaf yang memprediksi kelas minoritas. Temuan ini menegaskan bahwa stratified split memberikan ilusi performa yang baik dan model belum siap untuk deployment tanpa perbaikan signifikan.
+
 ---
 
 ## 1. Latar Belakang
@@ -45,7 +47,6 @@ Database yang digunakan adalah `LITIGASI` (SQL Server) — hasil migrasi dari si
 ## 4. Metodologi
 
 Project ini mengikuti framework **CRISP-DM** (Cross-Industry Standard Process for Data Mining):
-
 ```mermaid
 flowchart LR
     A[1. Business\nUnderstanding] --> B[2. Data\nUnderstanding]
@@ -53,13 +54,6 @@ flowchart LR
     C --> D[4. Modeling]
     D --> E[5. Evaluation]
     E --> F[6. Deployment]
-
-    style A fill:#e1f5fe
-    style B fill:#e1f5fe
-    style C fill:#e1f5fe
-    style D fill:#c8e6c9
-    style E fill:#fff9c4
-    style F fill:#fff9c4
 ```
 
 | Fase | Status | Output Kunci |
@@ -68,7 +62,7 @@ flowchart LR
 | 2. Data Understanding | ✅ | 5 SQL profiling scripts, EDA notebook, data quality report |
 | 3. Data Preparation | ✅ | ETL pipeline, preprocessing, dataset_clean.csv (608×17) |
 | 4. Modeling | ✅ | 3 iterasi Decision Tree tuning, model terbaik dipilih |
-| 5. Evaluation | ⬜ | Planned |
+| 5. Evaluation | ✅ | Temporal validation, repeated CV, error analysis, evaluation report |
 | 6. Deployment | ⬜ | Planned |
 
 ---
@@ -89,7 +83,6 @@ Data diekstrak dari database SQL Server (`db_akademik_uli`, database `LITIGASI`)
 Tabel `HtblNilai` (39,990 rows) ditolak — format NIM tidak kompatibel (0% overlap dengan `tblMHS`).
 
 ### 5.2 Filtering Pipeline
-
 ```mermaid
 flowchart TD
     A["1,621 mahasiswa<br/>(AP + IH)"] --> B{"≥ 3 semester<br/>IPSIPK?"}
@@ -99,11 +92,6 @@ flowchart TD
     C -->|Yes| D{"Outcome known?"}
     D -->|No| X3["401 excluded<br/>(Aktif/Cuti)"]
     D -->|Yes| E["608 mahasiswa<br/>→ FINAL DATASET"]
-
-    style E fill:#c8e6c9
-    style X1 fill:#ffcdd2
-    style X2 fill:#ffcdd2
-    style X3 fill:#ffcdd2
 ```
 
 ### 5.3 Dataset Final
@@ -181,17 +169,11 @@ Imputasi median per-angkatan menciptakan proxy temporal — setiap angkatan mend
 | `sks_sem2` importance | 0.621 | **0.432** | −0.189 |
 
 ### 6.3 Iterasi 3: Hyperparameter Tuning
-
 ```mermaid
 flowchart LR
     A[01: Pre-Pruning<br/>GridSearchCV] -->|✅ Terbaik| D[Model Final]
     B[02: Feature<br/>Engineering] -->|❌ Gagal| X[Deleted]
     C[03: max_features +<br/>min_impurity_decrease] -->|CV naik, test sama| D
-
-    style A fill:#c8e6c9
-    style B fill:#ffcdd2
-    style C fill:#fff9c4
-    style D fill:#c8e6c9
 ```
 
 #### Eksperimen 01 — Pre-Pruning GridSearchCV ✅
@@ -251,7 +233,6 @@ DecisionTreeClassifier(
 | 6 | `ips_sem1` | 0.004 |
 
 ### 6.6 Decision Rules
-
 ```
 |--- sks_sem2 <= 18.50
 |   |--- failed_courses <= 0.50
@@ -287,23 +268,57 @@ DecisionTreeClassifier(
 
 ---
 
-## 7. Diskusi
+## 7. Hasil Evaluasi (Fase 5)
 
-### 7.1 SKS sebagai Prediktor Dominan
+### 7.1 Ringkasan
+
+Model terbaik diuji dalam 6 fase evaluasi: temporal validation, deep error analysis, repeated CV, permutation importance, rule stability, dan summary dashboard.
+
+| Skenario | F1(0) | Recall(0) | Precision(0) | AUC |
+|----------|-------|-----------|-------------|-----|
+| **Stratified (modeling)** | **0.889** | 0.857 | 0.923 | 0.955 |
+| Repeated CV (100 evals) | 0.833 | 0.783 | 0.911 | 0.970 |
+| **Temporal (deployment)** | **0.000** | **0.000** | **0.000** | 0.710 |
+
+### 7.2 Temuan Utama: Kegagalan Temporal
+
+Model yang mencapai F1(0)=0.889 pada stratified split **gagal total** pada temporal split (train ≤2021, test >2021). Pada temporal test (231 mahasiswa, 54 negatif), model memprediksi **semua mahasiswa sebagai "Tepat Waktu"** — recall(0)=0.000, precision(0)=0.000.
+
+**Root cause:** Hanya 14 sampel negatif di training temporal (3.7%) vs 54 di stratified (11.1%). Dengan `min_samples_leaf=10`, tree temporal tidak bisa membentuk leaf yang memprediksi kelas minoritas. Semua 7 leaf default ke kelas mayoritas. Struktur tree berubah total — root split dari `sks_sem2` menjadi `failed_courses`.
+
+### 7.3 Temuan Evaluasi Lainnya
+
+- **Repeated CV:** F1(0) mean=0.833 [95% CI: 0.814–0.851]. Single stratified split **overestimates** recall(0) sebesar +7.4% vs CV mean.
+- **Permutation importance:** `sks_sem2` dan `sks_sem3` tetap dominan. Tidak ada hidden signal yang terlewat MDI. Rank correlation 0.675 (p=0.008).
+- **Rule stability:** Root split `sks_sem2` stabil di 10/10 CV folds. Tree selalu 7 leaves. Tapi rules ini hanya berlaku untuk stratified split.
+- **Rule coverage (temporal):** Rule `sks_sem2 > 18.5 AND sks_sem3 ≤ 18.5` mencakup 52 mahasiswa dengan **52 actual negatif** — precision rule sempurna, tapi model tidak pernah memprediksi negatif.
+- **Distribution shift:** `sks_sem2` mean naik dari ~13 (2020-2021) ke ~19 (2023). Model historis tidak bisa menggeneralisasi ke distribusi baru.
+
+### 7.4 Kesimpulan Evaluasi
+
+**[WARN] Model belum siap untuk deployment.** Stratified split memberikan ilusi performa yang baik. Untuk deployment nyata, diperlukan: (1) lebih banyak sampel negatif di training, (2) handling class imbalance (SMOTE/class_weight), (3) pertimbangan ensemble methods, dan (4) retraining berkala dengan data angkatan baru.
+
+> **Detail lengkap:** `5-evaluation/evaluation-report.md`
+
+---
+
+## 8. Diskusi
+
+### 8.1 SKS sebagai Prediktor Dominan
 
 Berlawanan dengan intuisi awal bahwa IPS (indeks prestasi) akan menjadi prediktor utama, **SKS semester 2 dan 3** mendominasi feature importance (91.9%). Ini mengindikasikan bahwa **pola pengambilan beban studi** — bukan performa akademik — adalah sinyal terkuat untuk ketepatan lulus.
 
 Mahasiswa AP dan IH memiliki kurikulum dengan beban SKS yang relatif tetap per semester. Mahasiswa yang mengambil SKS tinggi (>18.5, setara 7-8 MK) di semester 2 namun menurun di semester 3 menunjukkan pola "overload lalu collapse" — mereka tidak mampu mempertahankan pace kurikulum normal.
 
-### 7.2 Program IH Lebih Berisiko
+### 8.2 Program IH Lebih Berisiko
 
 Dari 608 mahasiswa, program IH (S1) memiliki 12.6% mahasiswa tidak tepat waktu vs 6.8% di AP (D3). Program S1 dengan durasi lebih panjang (8 semester) memberikan lebih banyak kesempatan untuk tertinggal.
 
-### 7.3 Imbalanced Data Handling
+### 8.3 Imbalanced Data Handling
 
 Dengan hanya 68 sampel negatif (11.2%), stratified split (54 train, 14 test) terbukti cukup untuk membangun model yang mendeteksi 12/14 mahasiswa berisiko. `class_weight='balanced'` overfit parah — menaikkan bobot minoritas tanpa constraint menghasilkan tree yang terlalu agresif.
 
-### 7.4 Keterbatasan
+### 8.4 Keterbatasan
 
 1. **Test set hanya 14 sampel negatif** — metrik test high-variance, CV lebih reliable
 2. **Temporal generalizability belum diuji** — model dilatih pada stratified random split, bukan temporal split
@@ -312,7 +327,7 @@ Dengan hanya 68 sampel negatif (11.2%), stratified split (54 train, 14 test) ter
 
 ---
 
-## 8. Kesimpulan
+## 9. Kesimpulan
 
 1. **Model Decision Tree dengan max_depth=3 dan min_samples_leaf=10** adalah model single-tree terbaik — F1(0)=0.889, overfitting minimal, interpretable.
 
@@ -327,9 +342,11 @@ Dengan hanya 68 sampel negatif (11.2%), stratified split (54 train, 14 test) ter
 
 5. **Ceiling single Decision Tree = F1(0) 0.889** — 3 pendekatan tuning berbeda konvergen ke nilai yang sama.
 
+6. **Model tidak generalizable ke temporal split** — F1(0)=0.000, recall(0)=0.000. Dengan hanya 14 sampel negatif di training temporal, tree tidak bisa mendeteksi mahasiswa berisiko. Stratified split memberikan ilusi performa yang baik. Model memerlukan perbaikan sebelum deployment.
+
 ---
 
-## 9. Rekomendasi
+## 10. Rekomendasi
 
 ### Untuk Institusi
 
@@ -339,14 +356,15 @@ Dengan hanya 68 sampel negatif (11.2%), stratified split (54 train, 14 test) ter
 
 ### Untuk Penelitian Lanjutan
 
-- **Ensemble methods** (Random Forest, Gradient Boosting) untuk feature importance lebih balance
-- **Validasi temporal** — uji model dengan split berdasarkan angkatan
-- **Tambah data** — khususnya sampel mahasiswa tidak tepat waktu (hanya 68)
+- **Ensemble methods** (Random Forest, Gradient Boosting) untuk feature importance lebih balance dan stabilitas lebih baik
+- **Validasi temporal sudah dilakukan** — hasilnya model gagal. Perlu strategi berbeda: SMOTE/class_weight untuk temporal split, atau model terpisah per program
+- **Tambah data** — khususnya sampel mahasiswa tidak tepat waktu (hanya 68, turun ke 14 di training temporal)
+- **Retraining berkala** — update model setiap tahun dengan data angkatan baru untuk mengatasi distribution shift
+- **Rule-based hybrid system** — gabungkan rule `sks_sem2 > 18.5 AND sks_sem3 ≤ 18.5` (precision sempurna di temporal) dengan model ML untuk coverage lebih luas
 
 ---
 
-## 10. Struktur Direktori
-
+## 11. Struktur Direktori
 ```
 prediksi-ketepatan-lulus/
 ├── 1-business-understanding/
@@ -380,13 +398,22 @@ prediksi-ketepatan-lulus/
 │       ├── tuning-report.md
 │       └── combined-tuning-report.md
 │
+├── 5-evaluation/
+│   ├── README.md
+│   ├── evaluation-report.md
+│   ├── 01-final-evaluation.ipynb
+│   ├── 01-evaluation-results.md
+│   ├── 01-evaluation-results_files/
+│   ├── evaluation_metrics.json
+│   └── dataset_clean.csv
+│
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-## 11. Quick Start
+## 12. Quick Start
 
 ```bash
 pip install pandas numpy matplotlib seaborn scikit-learn
@@ -411,7 +438,7 @@ print(model.score(X_test, y_test))
 
 ---
 
-## 12. Status Deliverables
+## 13. Status Deliverables
 
 | # | Deliverable | Status |
 |---|-------------|--------|
@@ -420,9 +447,10 @@ print(model.score(X_test, y_test))
 | 3 | Notebook preprocessing | ✅ |
 | 4 | Modeling — Decision Tree (3 iterasi) | ✅ |
 | 5 | Hyperparameter tuning | ✅ |
-| 6 | Laporan formal Bab I–V | ⬜ |
-| 7 | Slide presentasi | ⬜ |
-| 8 | Artikel IEEE | ⬜ |
+| 6 | Evaluation — temporal validation, CV, error analysis | ✅ |
+| 7 | Laporan formal Bab I–V | ⬜ |
+| 8 | Slide presentasi | ⬜ |
+| 9 | Artikel IEEE | ⬜ |
 
 ---
 

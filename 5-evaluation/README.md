@@ -189,18 +189,17 @@ Satu sel final yang merangkum semua temuan:
 
 ---
 
-## Expected Findings
+## Actual Results (23 Juni 2026)
 
-| Scenario | Likely Outcome | Implication |
-|----------|---------------|-------------|
-| Temporal recall(0) ≈ 0.3–0.5 | Model struggles with only 14 train negatives | Need SMOTE or different class balancing |
-| Temporal recall(0) ≈ 0.6–0.8 | Model generalizes reasonably | Acceptable for deployment with caveats |
-| Temporal recall(0) ≈ 0.8+ | Model generalizes well | Ready for deployment |
-| Permutation importance ≠ MDI | sks_sem2 dominance is partly MDI artifact | Revise feature importance narrative |
-| Rules stable across CV folds | Model structure is reliable | Rules can be used for policy |
-| Rules unstable across CV folds | Model structure is data-dependent | Need ensemble or more data |
-| FN concentrated in IH (S1) | Program-specific risk factors | Separate models per program? |
-| FN concentrated in angkatan baru | Distribution shift over time | Model needs retraining with new data |
+| Scenario | Predicted | **Actual** | Implication |
+|----------|----------|-----------|-------------|
+| Temporal recall(0) | 0.3–0.8 | **0.000** — complete failure | Model cannot detect ANY at-risk students in temporal split. 14 train negatives + min_samples_leaf=10 → no negative leaf forms. Need SMOTE, class_weight, or more data. |
+| Permutation importance ≠ MDI | Maybe different | `sks_sem2`+`sks_sem3` dominate both | MDI bias confirmed (0.558→0.128), but ranking unchanged. 10 features zero importance in both methods. |
+| Rules stable across CV folds | Stable or unstable | **Stable** in stratified CV (sks_sem2 root in 10/10 folds) | Stratified rules are reliable — BUT temporal model has completely different tree structure (root: `failed_courses`) |
+| FN in IH vs AP | IH more | FN: 52 IH (96.3%), 2 AP (3.7%) | IH dominates — confirms program-specific risk |
+| FN in angkatan baru | Some concentration | 49/50 angkatan 2023 are FN | Severe concentration — 2023 is 98% target=0 (data leakage + distribution shift) |
+
+**Key finding: Model fails catastrophically on temporal split (F1(0)=0.000).** The stratified performance (F1(0)=0.889) does NOT generalize to the deployment scenario. See `evaluation-report.md` for full analysis.
 
 ---
 
@@ -208,10 +207,13 @@ Satu sel final yang merangkum semua temuan:
 
 ```
 5-evaluation/
-├── README.md                        ← Dokumen ini
-├── evaluation-plan.md               ← Rencana evaluasi detail
+├── README.md                        ← Dokumen ini (updated)
+├── evaluation-report.md             ← Laporan evaluasi komprehensif
 ├── dataset_clean.csv                ← Global median dataset (copy)
-├── 01-final-evaluation.ipynb        ← Notebook evaluasi
-├── 01-evaluation-results.md         ← Output nbconvert
-└── 01-evaluation-results_files/     ← Charts
+├── 01-final-evaluation.ipynb        ← Notebook evaluasi (25 cells)
+├── 01-evaluation-results.md         ← Output nbconvert (2,289 lines)
+├── 01-evaluation-results_files/     ← 10 chart PNGs
+├── evaluation_metrics.json          ← Structured metrics export
+├── rules_temporal.txt               ← Decision rules — temporal model
+└── rules_stratified.txt             ← Decision rules — stratified model
 ```
