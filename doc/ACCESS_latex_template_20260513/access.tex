@@ -1,0 +1,397 @@
+\documentclass{ieeeaccess}
+%Adjusted 05/13/2026 at the byline author names
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+
+\usepackage{bm}
+\makeatletter
+\AtBeginDocument{\DeclareMathVersion{bold}
+\SetSymbolFont{operators}{bold}{T1}{times}{b}{n}
+\SetSymbolFont{NewLetters}{bold}{T1}{times}{b}{it}
+\SetMathAlphabet{\mathrm}{bold}{T1}{times}{b}{n}
+\SetMathAlphabet{\mathit}{bold}{T1}{times}{b}{it}
+\SetMathAlphabet{\mathbf}{bold}{T1}{times}{b}{n}
+\SetMathAlphabet{\mathtt}{bold}{OT1}{pcr}{b}{n}
+\SetSymbolFont{symbols}{bold}{OMS}{cmsy}{b}{n}
+\renewcommand\boldmath{\@nomath\boldmath\mathversion{bold}}}
+\makeatother
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+%Your document starts from here ___________________________________________________
+\begin{document}
+\history{Date of publication July 13, 2026, date of current version July 13, 2026.}
+\doi{10.1109/ACCESS.2026.1234567}
+
+\title{Penyeimbangan Performa dan Interpretabilitas melalui Tuning Hyperparameter Decision Tree untuk Prediksi Kelulusan Mahasiswa}
+\author{\uppercase{Viola Septianti Elsiana}\authorrefmark{1},
+\uppercase{Muhammad Saladin Eka Septian}\authorrefmark{1}, AND
+\uppercase{Muhammad Hisyam Najwan}\authorrefmark{1}}
+
+\address[1]{Program Studi DIV Teknik Informatika, Universitas Logistik dan Bisnis Internasional (ULBI), Bandung 40151, Indonesia (e-mail: \{714230001\}@std.ulbi.ac.id)}
+\tfootnote{Penelitian ini didanai oleh hibah akademis dari Universitas Logistik dan Bisnis Internasional (ULBI) untuk mata kuliah Data Mining Semester Genap 2026.}
+
+\markboth
+{Elsiana \headeretal: Penyeimbangan Performa dan Interpretabilitas melalui Tuning Hyperparameter Decision Tree}
+{Elsiana \headeretal: Penyeimbangan Performa dan Interpretabilitas melalui Tuning Hyperparameter Decision Tree}
+
+\corresp{Corresponding author: Viola Septianti Elsiana (e-mail: 714230001@std.ulbi.ac.id).}
+
+
+\begin{abstract}
+Prediksi ketepatan waktu kelulusan mahasiswa merupakan tantangan penting dalam \emph{educational data mining} (EDM) yang berdampak langsung pada akreditasi institusi. Penelitian ini menerapkan algoritma \emph{Decision Tree} CART untuk memprediksi kelulusan tepat waktu mahasiswa program DIV Administrasi Peradilan dan S1 Ilmu Hukum. Menggunakan metodologi CRISP-DM, dataset sebanyak 608 mahasiswa dengan 14 fitur akademik dari tiga semester pertama diproses melalui \emph{pipeline} yang mencakup koreksi anomali beban studi kumulatif dan mitigasi \emph{temporal proxy} menggunakan imputasi median global. Optimasi \emph{hyperparameter} dilakukan dengan \texttt{GridSearchCV} mencakup 240 kombinasi untuk menyeimbangkan performa prediktif dan interpretabilitas model. Model terbaik dengan konfigurasi \texttt{max\_depth=3} dan \texttt{min\_samples\_leaf=10} mencapai \emph{F1-score} kelas minoritas (tidak tepat waktu) sebesar 0,889 pada \emph{stratified random split}, dengan kedalaman pohon hanya 3 level dan 7 aturan keputusan yang transparan. Namun, validasi temporal mengungkapkan kegagalan generalisasi model dengan \emph{F1-score} 0,000 pada data angkatan baru, disebabkan oleh ketidakseimbangan sampel temporal dan pergeseran distribusi beban studi antar angkatan. \emph{Repeated 10x10 cross-validation} menghasilkan rata-rata \emph{F1-score} 0,833, mengindikasikan bahwa validasi temporal merupakan komponen kritis dalam evaluasi \emph{model machine learning} untuk prediksi kelulusan mahasiswa.
+\end{abstract}
+
+\begin{keywords}
+Educational data mining, decision tree, hyperparameter tuning, graduation prediction, temporal validation, class imbalance.
+\end{keywords}
+
+\titlepgskip=-21pt
+
+\maketitle
+
+\section{Pendahuluan}
+\label{sec:introduction}
+\PARstart{K}{etepatan} waktu kelulusan merupakan salah satu indikator utama dalam sistem akreditasi perguruan tinggi yang digunakan oleh Badan Akreditasi Nasional Perguruan Tinggi (BAN-PT) untuk menilai efektivitas program studi. Mahasiswa yang menyelesaikan studi tepat pada durasi normal mencerminkan efisiensi proses pembelajaran dan kualitas pengelolaan akademik institusi. Di sisi lain, mahasiswa yang mengalami keterlambatan kelulusan atau bahkan \emph{dropout} menimbulkan kerugian baik dari segi investasi waktu, biaya pendidikan, maupun sumber daya institusi yang tidak termanfaatkan secara optimal.
+
+Setiap institusi pendidikan tinggi menyimpan data akademik mahasiswa dalam sistem informasi akademik yang mencakup rekam jejak nilai, beban studi, dan status kelulusan. Sayangnya, data tersebut belum dimanfaatkan secara optimal untuk membangun sistem peringatan dini (\emph{early-warning system}) yang dapat mendeteksi mahasiswa berisiko tidak lulus tepat waktu. \emph{Educational Data Mining} (EDM) menawarkan pendekatan sistematis untuk mengekstraksi pengetahuan dari data akademik guna mendukung pengambilan keputusan institusi \cite{ref10}. Berbagai algoritma \emph{machine learning} telah diterapkan dalam domain EDM, mulai dari \emph{neural networks}, \emph{ensemble methods}, hingga \emph{decision tree} dengan tingkat akurasi yang bervariasi \cite{ref1}.
+
+Algoritma \emph{Decision Tree}, khususnya \emph{Classification and Regression Trees} (CART), memiliki keunggulan utama dalam hal interpretabilitas. Model ini menghasilkan aturan keputusan berbentuk pohon biner yang dapat diterjemahkan langsung menjadi kebijakan akademik tanpa memerlukan pemahaman teknis yang mendalam \cite{ref4}. Dalam konteks institusi pendidikan, kemampuan untuk menjelaskan \emph{mengapa} seorang mahasiswa diprediksi berisiko menjadi faktor krusial untuk membangun kepercayaan pengguna dan memfasilitasi intervensi yang tepat sasaran \cite{ref2}. Studi terdahulu menunjukkan bahwa penerapan sistem prediksi berbasis EDM dapat meningkatkan proporsi kelulusan tepat waktu melalui identifikasi dini mahasiswa berisiko \cite{ref5}.
+
+Meskipun potensi EDM sangat besar, penerapan \emph{Decision Tree} untuk prediksi kelulusan menghadapi beberapa tantangan yang signifikan. Pertama, ketidakseimbangan kelas (\emph{class imbalance}) merupakan persoalan intrinsik dalam data kelulusan, di mana proporsi mahasiswa lulus tepat waktu (kelas mayoritas) jauh lebih besar dibanding mahasiswa tidak tepat waktu (kelas minoritas). Pada dataset penelitian ini, distribusi mencapai 540 mahasiswa tepat waktu (88,8\%) berbanding 68 mahasiswa tidak tepat waktu (11,2\%), yang menyulitkan model untuk mempelajari pola kelas minoritas. Kedua, kualitas data \emph{legacy} dari sistem informasi akademik yang telah mengalami migrasi antar generasi sistem menyisakan berbagai anomali, seperti \emph{bug} pencatatan SKS kumulatif pada angkatan 2020+ serta nilai placeholder IPS=0,0 yang bukan mencerminkan kondisi akademik sesungguhnya \cite{ref26}.
+
+Tantangan ketiga dan yang menjadi fokus utama penelitian ini adalah \emph{trade-off} antara performa prediktif dan interpretabilitas. Mayoritas studi EDM berorientasi pada pencapaian akurasi klasifikasi setinggi mungkin dengan mengorbankan transparansi model \cite{ref10}. Sebaliknya, model yang sangat interpretable seperti \emph{Decision Tree} dengan kedalaman minimal cenderung memiliki daya prediksi yang terbatas pada data yang kompleks. Penelitian ini secara eksplisit mengkaji bagaimana \emph{hyperparameter tuning} dapat menyeimbangkan kedua aspek tersebut \cite{ref21}. Tantangan keempat adalah validasi temporal, di mana model yang diuji menggunakan \emph{random split} mungkin menunjukkan performa yang tidak realistis ketika dihadapkan pada data dari angkatan baru yang memiliki distribusi berbeda \cite{ref6}.
+
+Berdasarkan latar belakang tersebut, penelitian ini mengajukan tiga pertanyaan penelitian:
+\begin{enumerate}
+    \item[\textbf{RQ1:}] Bagaimana \emph{hyperparameter tuning} mempengaruhi performa prediktif model \emph{Decision Tree} dalam mengklasifikasikan kelulusan mahasiswa?
+    \item[\textbf{RQ2:}] Bagaimana \emph{hyperparameter tuning} mempengaruhi interpretabilitas dan kompleksitas pohon keputusan yang dihasilkan?
+    \item[\textbf{RQ3:}] Sejauh mana model \emph{Decision Tree} yang telah di-\emph{tuning} dapat menggeneralisasi pada strategi validasi yang berbeda, khususnya validasi temporal?
+\end{enumerate}
+
+\section{Tinjauan Pustaka}
+\label{sec:related}
+
+\subsection{Prediksi Kelulusan Mahasiswa}
+Penelitian tentang prediksi kelulusan dan \emph{dropout} mahasiswa telah menjadi salah satu topik utama dalam EDM selama satu dekade terakhir. Okoye dkk. \cite{ref3} mengembangkan model \emph{ensemble} RG-DMML yang menggabungkan \emph{Random Forest}, \emph{Gradient Boosting}, dan \emph{Deep Neural Networks} untuk memprediksi retensi dan kelulusan mahasiswa, mencapai akurasi 94,2\% pada dataset pendidikan tinggi. Meskipun akurat, model \emph{ensemble} semacam ini memiliki interpretabilitas yang terbatas karena sifatnya yang merupakan gabungan dari banyak \emph{base learner}. Vaarma dan Li \cite{ref6} melakukan studi empiris di pendidikan tinggi Finlandia dan menemukan bahwa data akademik dari semester 1 hingga 3 merupakan prediktor paling signifikan untuk mengidentifikasi mahasiswa berisiko \emph{dropout}. Temuan ini memperkuat pendekatan penelitian kami yang hanya menggunakan data tiga semester pertama untuk menghindari \emph{data leakage} dari semester lanjutan.
+
+Rabelo dan Z\'arate \cite{ref7} mengusulkan model prediksi \emph{dropout} menggunakan algoritma CART dengan akurasi 89,2\% pada data mahasiswa Brasil. Studi mereka menekankan pentingnya fitur beban studi dan kinerja akademik awal sebagai penentu utama kelulusan. Loder \cite{ref8} mengidentifikasi kluster mahasiswa berisiko berdasarkan kecepatan pengambilan kredit, menunjukkan bahwa pola pengambilan SKS dapat menjadi indikator dini yang lebih andal dibanding nilai akademik semata. Temuan-temuan ini relevan dengan konteks penelitian kami di Indonesia, di mana sistem kredit semester (SKS) menjadi tulang punggung kurikulum.
+
+\subsection{Decision Tree pada Educational Data Mining}
+Algoritma \emph{Decision Tree} (DT) menempati posisi unik dalam lanskap EDM karena kemampuannya menghasilkan model yang transparan dan mudah diinterpretasikan. Sarker dkk. \cite{ref4} menerapkan DT pada dataset performa akademik mahasiswa dan memperoleh akurasi 87\%, dengan \emph{Grade Point Average} (GPA) sebagai simpul akar (\emph{root node}) pohon keputusan. Studi mereka menegaskan bahwa DT mampu menyamai performa model \emph{black-box} pada data akademik dengan kompleksitas menengah.
+
+Islam dkk. \cite{ref2} mengintegrasikan \emph{Explainable AI} (XAI) dengan DT dalam sistem prediksi performa akademik. Mereka menemukan bahwa interpretabilitas DT membantu pendidik mengidentifikasi faktor risiko individual mahasiswa, sehingga intervensi dapat dilakukan secara spesifik dan terarah. Vega-Rebolledo dkk. \cite{ref9} menggunakan analisis \emph{survival} dan XAI pada data mahasiswa teknik informatika dan mengonfirmasi bahwa performa akademik awal (semester 1--3) merupakan periode kritis yang menentukan lintasan kelulusan. Studi-studi ini menunjukkan bahwa DT tidak hanya berfungsi sebagai alat prediksi, tetapi juga sebagai jembatan komunikasi antara data dan kebijakan akademik.
+
+\subsection{Optimasi Hyperparameter pada Model Decision Tree}
+Meskipun DT memiliki keunggulan interpretabilitas, model \emph{default} tanpa tuning sering menghasilkan pohon yang terlalu dalam (\emph{overfitting}) atau terlalu dangkal (\emph{underfitting}). Carrasco dkk. \cite{ref15} menerapkan \texttt{GridSearchCV} untuk mengoptimasi \texttt{max\_depth} dan \texttt{min\_samples\_leaf} pada DT untuk prediksi risiko luka tekan pada pasien rumah sakit. Dengan membatasi kedalaman maksimal 5, mereka mempertahankan akurasi 85,5\% sekaligus menghasilkan model yang ringkas dan mudah diaudit secara klinis. Fauzi dkk. \cite{ref16} mengkombinasikan \emph{feature engineering} dan \emph{hyperparameter tuning} pada \emph{Random Forest} untuk klasifikasi risiko kredit dan menunjukkan bahwa tuning secara signifikan mengurangi varians antara akurasi \emph{train} dan \emph{test}.
+
+Hasan dkk. \cite{ref11} mengaplikasikan CART \emph{shallow} (kedalaman 2--3) untuk klasifikasi tingkat kecemasan dan depresi dan mencapai AUC di atas 0,90 dengan hanya menggunakan 2--3 fitur, membuktikan bahwa model sederhana dapat kompetitif untuk tugas klasifikasi tertentu. Cagnini dkk. \cite{ref17} melakukan survei komprehensif tentang algoritma evolusioner untuk optimasi \emph{ensemble learning} dan menekankan bahwa optimasi multi-objektif yang mempertimbangkan akurasi dan jumlah simpul (kompleksitas) menghasilkan model yang lebih seimbang dibanding optimasi akurasi semata. Penelitian kami mengadopsi pendekatan serupa dengan secara eksplisit mengevaluasi dampak tuning terhadap kedalaman pohon dan jumlah daun sebagai proksi interpretabilitas.
+
+\section{Metodologi Penelitian}
+\label{sec:methodology}
+
+\PARstart{P}{enelitian} ini menerapkan metodologi CRISP-DM (\emph{Cross-Industry Standard Process for Data Mining}) secara terstruktur untuk membangun sistem prediksi kelulusan mahasiswa. CRISP-DM dipilih karena pendekatannya yang bersifat iteratif dan berorientasi pada tujuan institusi, yang terdiri dari fase pemahaman bisnis, pemahaman data, persiapan data, pemodelan, dan evaluasi. Langkah-langkah metodologis didefinisikan secara rinci pada bagian-bagian berikut.
+
+\subsection{Sumber Data dan Pemfilteran}
+Data primer dalam penelitian ini diekstraksi dari database akademik institusi bernama \texttt{LITIGASI} yang berjalan di atas SQL Server 2022. Dari total 405 tabel yang tersedia pada skema basis data, empat tabel master terpilih sebagai sumber data utama setelah melalui fase profiling: \texttt{tblMHS} (master data mahasiswa), \texttt{IPSIPK} (riwayat indeks prestasi dan beban kredit per semester), \texttt{Qnilai\_mhs} (transkrip nilai mata kuliah), dan \texttt{Kul\_Kehadiran} (catatan kehadiran kuliah). Beberapa tabel lain seperti \texttt{HtblNilai} dan \texttt{Perwalian} ditolak karena inkonsistensi NIM dan tingginya nilai \emph{missing value}.
+
+Dataset awal mencakup 1.621 data mahasiswa dari program studi DIV Administrasi Peradilan (AP) dan S1 Ilmu Hukum (IH). Proses penyaringan dilakukan dalam tiga tahap eliminasi untuk menghasilkan dataset yang valid:
+\begin{enumerate}
+    \item \textbf{Eliminasi berdasarkan durasi studi minimal:} Mahasiswa angkatan 2024 dan 2025 dieliminasi ($-458$ mahasiswa) karena belum menempuh masa studi minimal tiga semester.
+    \item \textbf{Eliminasi data kosong:} Mahasiswa dengan riwayat akademik yang kosong atau tidak memiliki nilai IPS yang valid dieliminasi ($-154$ mahasiswa). Masalah ini merupakan dampak migrasi sistem database \emph{legacy} ke database baru, terutama berdampak pada angkatan 2014 dan 2015.
+    \item \textbf{Eliminasi berdasarkan kepastian status:} Mahasiswa dengan status aktif atau cuti dikeluarkan dari dataset ($-401$ mahasiswa) karena status kelulusan mereka belum dapat dipastikan. Hanya mahasiswa dengan status akhir Lulus atau Keluar (Dropout) yang dipertahankan. Mahasiswa dengan status Keluar diklasifikasikan ke dalam kelas tidak tepat waktu (negatif).
+\end{enumerate}
+Setelah proses penyaringan, dataset final terdiri dari \textbf{608 mahasiswa} (AP: 147 mahasiswa, IH: 461 mahasiswa) dengan distribusi target: 540 mahasiswa lulus tepat waktu (88,8\%) dan 68 mahasiswa tidak tepat waktu (11,2\%). Ketimpangan ini mencerminkan kondisi \emph{class imbalance} yang ekstrem, yang membutuhkan penanganan khusus dalam desain evaluasi \cite{ref27}.
+
+\subsection{Koreksi Anomali SKS dan Preprocessing}
+Eksplorasi data mendalam mengungkap adanya \emph{SKS migration bug} pada tabel \texttt{IPSIPK.TSKS} untuk angkatan 2020+. Kolom SKS mencatat beban SKS secara kumulatif (mencapai 80--133 SKS pada semester 2) dan bukan per semester. Untuk mengatasi bug ini, dikembangkan algoritma deteksi anomali otomatis dalam pipeline ekstraksi \cite{ref24}. Ketika nilai SKS terdeteksi melampaui batas wajar ($>30$ SKS), sistem secara otomatis melakukan kalkulasi ulang dengan menghitung jumlah \emph{distinct} \texttt{Kode\_MK} pada tabel transaksi nilai \texttt{Qnilai\_mhs} untuk semester terkait, dengan rentang wajar dibatasi antara 1 hingga 20 mata kuliah. Beban studi yang tidak wajar setelah pemrosesan tersebut dikonversi menjadi \texttt{NaN} untuk diimputasi pada tahap berikutnya.
+
+Pembersihan data juga dilakukan pada variabel Indeks Prestasi Semester (IPS). Sebanyak 219 mahasiswa (36\%) memiliki nilai \texttt{IPS = 0.0} yang teridentifikasi sebagai \emph{system placeholder} dari sistem migrasi \emph{legacy}, bukan nilai performa nol yang sesungguhnya. Nilai placeholder \texttt{0.0} ini dikonversi menjadi \texttt{NaN} agar tidak mengacaukan perhitungan model \cite{ref26}.
+
+\subsection{Mitigasi Temporal Proxy dengan Global Median Imputation}
+Penanganan nilai kosong (\emph{missing values}) membandingkan dua pendekatan:
+\begin{enumerate}
+    \item \textbf{Imputasi per-angkatan (Baseline):} Nilai median dihitung terpisah untuk setiap angkatan. Pendekatan ini ditolak karena menciptakan \emph{temporal proxy}. SKS rata-rata antar angkatan mengalami pergeseran kebijakan kurikulum dari tahun ke tahun. Model klasifikasi secara tidak sengaja mempelajari perbedaan kebijakan angkatan (misalnya, angkatan 2020 memiliki imputasi SKS lebih tinggi dari 2018) daripada pola kegagalan studi individu mahasiswa, yang berujung pada data leakage \cite{ref25}.
+    \item \textbf{Imputasi median global (Final):} Nilai kosong diimputasi menggunakan satu nilai median tunggal yang dihitung dari seluruh populasi tanpa memandang angkatan. Metode ini memotong kebocoran sinyal temporal, sehingga mahasiswa dari angkatan mana pun menerima nilai imputasi yang seragam \cite{ref23}.
+\end{enumerate}
+
+Sebanyak 14 fitur prediktor akademik terpilih untuk melatih model, yang dikelompokkan ke dalam performa IPS (\texttt{ips\_sem1}, \texttt{ips\_sem2}, \texttt{ips\_sem3}), beban SKS (\texttt{sks\_sem1}, \texttt{sks\_sem2}, \texttt{sks\_sem3}), riwayat mata kuliah gagal (\texttt{failed\_courses}, \texttt{failed\_in\_sem1}, \texttt{repeated\_courses}), serta fitur turunan (\texttt{ips\_trend}, \texttt{avg\_ips}, \texttt{ips\_std}, \texttt{ips\_min}, \texttt{sks\_completion\_ratio}). Fitur non-akademik (demografi, agama, jenis kelamin, tingkat kehadiran dengan 53\% data hilang) serta data semester 4 ke atas dihapus untuk menghindari data leakage \cite{ref24}.
+
+\subsection{Algoritma Decision Tree (CART)}
+Penelitian ini memprioritaskan aspek interpretabilitas model untuk mendukung pengambilan keputusan akademis. Algoritma \emph{Classification and Regression Trees} (CART) dipilih karena menghasilkan pohon keputusan biner yang transparan \cite{ref12}. Pemisahan simpul (\emph{node splitting}) didasarkan pada minimalisasi kriteria \emph{Gini Impurity} ($I_G$), yang didefinisikan sebagai:
+\begin{equation}
+I_G(t) = 1 - \sum_{j=1}^{c} p(j|t)^2
+\label{eq:gini}
+\end{equation}
+di mana $p(j|t)$ menyatakan proporsi sampel kelas $j$ pada simpul $t$, dan $c$ adalah jumlah kelas ($c=2$). Pada setiap tingkat kedalaman, algoritma mencari fitur $x_i$ dan threshold $\theta$ yang meminimalkan rata-rata tertimbang \emph{Gini Impurity} dari simpul anak kiri dan kanan. Model Decision Tree dibatasi kedalamannya ($\le 5$) agar menghasilkan aturan keputusan yang ringkas dan mudah diterjemahkan menjadi kebijakan akademis \cite{ref11}, \cite{ref13}.
+
+\subsection{Optimasi Hyperparameter}
+Untuk menemukan struktur pohon yang optimal pada kondisi \emph{class imbalance}, dilakukan optimasi hyperparameter menggunakan \texttt{GridSearchCV} dengan kriteria penilaian skor $F1$ kelas minoritas (mahasiswa tidak tepat waktu). Ruang pencarian hyperparameter mencakup 240 kombinasi unik:
+\begin{itemize}
+    \item Kedalaman maksimum (\texttt{max\_depth}): [3, 4, 5, 6, None]
+    \item Jumlah minimum sampel di daun (\texttt{min\_samples\_leaf}): [5, 10, 15, 20]
+    \item Jumlah minimum sampel split (\texttt{min\_samples\_split}): [5, 10, 20]
+    \item Bobot kelas (\texttt{class\_weight}): [None, 'balanced']
+    \item Kriteria pemisah (\texttt{criterion}): ['gini', 'entropy']
+\end{itemize}
+Tuning tambahan diuji dengan memasukkan parameter \texttt{max\_features} dan \texttt{min\_impurity\_decrease} untuk mengevaluasi batasan performa model (ceiling effect) \cite{ref15}, \cite{ref16}. Post-pruning menggunakan parameter \texttt{ccp\_alpha} (cost-complexity pruning) juga dievaluasi untuk memangkas cabang kosmetik yang tidak berpengaruh pada keputusan akhir \cite{ref17}.
+
+\subsection{Strategi Validasi dan Metrik Evaluasi}
+Untuk mengukur kesenjangan performa antara kondisi eksperimental dan skenario penyebaran (\emph{deployment}) nyata, evaluasi dilakukan menggunakan dua skenario validasi \cite{ref29}:
+\begin{enumerate}
+    \item \textbf{Stratified Random Split (80/20):} Data diacak secara acak dengan mempertahankan proporsi target (11,2\% kelas minoritas) di training set (486 baris, 54 negatif) dan test set (122 baris, 14 negatif). Skenario ini digunakan untuk membandingkan baseline performa.
+    \item \textbf{Temporal Validation Split:} Data dilatih menggunakan data historis angkatan $\le 2021$ (377 mahasiswa, 14 negatif) dan diuji pada data angkatan baru $>2021$ (231 mahasiswa, 54 negatif). Skenario ini menyimulasikan implementasi dunia nyata secara temporal.
+\end{enumerate}
+Untuk menguji keandalan model secara statistik, diterapkan skenario \emph{10-fold Cross-Validation} yang diulang sebanyak 10 kali (\emph{10x10 Repeated Stratified K-Fold CV}), menghasilkan 100 nilai evaluasi independen untuk mendeteksi adanya bias optimistik pada \emph{single split} \cite{ref28}, \cite{ref30}. 
+
+Metrik evaluasi difokuskan pada performa deteksi kelas minoritas ($0$: tidak tepat waktu), dengan menggunakan metrik sensitivitas kelas minoritas (\emph{Recall(0)}), presisi kelas minoritas (\emph{Precision(0)}), nilai harmonis (\emph{F1(0)}), serta \emph{Area Under the ROC Curve} (\emph{AUC}) \cite{ref27}.
+
+\section{Hasil dan Pembahasan}
+\label{sec:results}
+
+\subsection{Performa Baseline Model}
+Eksperimen pertama dilakukan untuk menetapkan \emph{baseline} performa model \emph{Decision Tree} tanpa tuning pada dua skenario validasi. \textbf{Skenario temporal} (latih $\le$2021, uji $>$2021) menggunakan 377 mahasiswa untuk pelatihan dengan hanya 14 sampel kelas minoritas (3,7\%). \textbf{Skenario stratified} (80/20 acak dengan \texttt{stratify=target}) membagi 608 mahasiswa menjadi 486 latih (54 negatif) dan 122 uji (14 negatif).
+
+Tabel~\ref{tab:baseline} menyajikan perbandingan performa \emph{baseline} antar skenario. Hasil yang mencolok adalah kegagalan model temporal dalam mendeteksi kelas minoritas: \emph{Recall(0)} hanya 0,037, yang berarti hanya 2 dari 54 mahasiswa tidak tepat waktu teridentifikasi dengan benar. Model memprediksi hampir seluruh mahasiswa sebagai kelas mayoritas. Sebaliknya, model \emph{stratified} menunjukkan performa yang jauh lebih baik dengan \emph{F1(0)} sebesar 0,867.
+
+\begin{table}[t]
+\caption{Perbandingan Performa Baseline pada Temporal vs Stratified Split}
+\label{tab:baseline}
+\begin{center}
+\begin{tabular}{lcc}
+\hline
+\textbf{Metrik} & \textbf{Temporal Baseline} & \textbf{Stratified (Global Median)} \\
+\hline
+Accuracy       & 0,7749 & 0,9344 \\
+Precision(0)   & 1,0000 & 0,8125 \\
+Recall(0)      & 0,0370 & 0,9286 \\
+F1(0)          & 0,0714 & 0,8667 \\
+AUC            & 0,5185 & 0,9319 \\
+Depth          & 5       & 8      \\
+Leaves         & 16      & 24     \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Model \emph{stratified baseline} menunjukkan indikasi \emph{overfitting} yang kuat: akurasi pelatihan mencapai 1,0 dengan kedalaman pohon 8 dan 24 daun. Setelah dilakukan investigasi lebih lanjut, ditemukan bahwa penggunaan imputasi median per-angkatan pada \emph{baseline} awal menciptakan \emph{temporal proxy} -- nilai imputasi yang berbeda antar angkatan membuat model secara tidak sengaja mempelajari pola kohort daripada pola akademik individual \cite{ref25}. Penerapan imputasi median global berhasil menghilangkan \emph{proxy} ini dan meningkatkan \emph{F1(0)} dari 0,764 menjadi 0,867, sekaligus menekan \emph{overfitting} \cite{ref14}, \cite{ref23}.
+
+\subsection{Dampak Hyperparameter Tuning}
+
+Optimasi menggunakan \texttt{GridSearchCV} dengan 5-fold \emph{stratified cross-validation} mengeksplorasi 240 kombinasi \emph{hyperparameter}. Tiga pendekatan tuning diuji secara berurutan sebagaimana dirangkum dalam Tabel~\ref{tab:tuning}:
+
+\begin{itemize}
+    \item \textbf{01-Tuned}: \emph{Pre-pruning} dengan \texttt{max\_depth}, \texttt{min\_samples\_leaf}, \texttt{criterion}, dan \texttt{splitter}.
+    \item \textbf{02-Engineered}: Penambahan 4 fitur biner (indikator beban studi rendah, indikator SKS tidak wajar, dll.) + tuning.
+    \item \textbf{03-Combined}: Tuning tambahan pada \texttt{max\_features} dan \texttt{min\_impurity\_decrease}.
+\end{itemize}
+
+\begin{table}[t]
+\caption{Perbandingan Metrik Semua Model pada Stratified Test}
+\label{tab:tuning}
+\begin{center}
+\small
+\begin{tabular}{lcccc}
+\hline
+\textbf{Metrik} & \textbf{Baseline} & \textbf{01-Tuned} & \textbf{02-Eng.} & \textbf{03-Comb.} \\
+\hline
+F1(0)           & 0,867 & 0,889 & 0,889 & 0,889 \\
+Recall(0)       & 0,929 & 0,857 & 0,857 & 0,857 \\
+Precision(0)    & 0,813 & 0,923 & 0,923 & 0,923 \\
+AUC             & 0,950 & 0,924 & 0,924 & 0,924 \\
+Accuracy        & 0,934 & 0,975 & 0,975 & 0,975 \\
+Depth           & 8     & 3     & 4     & 4     \\
+Leaves          & 24    & 7     & 9     & 6     \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Konfigurasi optimal ditemukan pada \textbf{01-Tuned}. Model ini mencapai \emph{F1(0)} sebesar 0,889 dan \emph{AUC} 0,924 dengan kedalaman hanya 3 level dan 7 daun. Temuan penting adalah konvergensi ketiga pendekatan pada nilai \emph{F1(0)} yang identik (0,889), mengindikasikan adanya \emph{ceiling effect} -- model \emph{Decision Tree} tunggal telah mencapai batas kemampuannya pada dataset ini. Penambahan fitur rekayasa maupun kombinasi \emph{hyperparameter} tambahan tidak memberikan peningkatan berarti \cite{ref15}, \cite{ref16}, \cite{ref17}.
+
+\subsection{Analisis Interpretabilitas Model}
+
+Salah satu kontribusi utama penelitian ini adalah analisis kuantitatif dampak tuning terhadap interpretabilitas model. Tabel~\ref{tab:rules} menyajikan tujuh aturan keputusan yang dihasilkan model 01-Tuned.
+
+\begin{table}[t]
+\caption{Aturan Keputusan Model 01-Tuned}
+\label{tab:rules}
+\begin{center}
+\small
+\begin{tabular}{c|p{50mm}|c}
+\hline
+\textbf{Aturan} & \textbf{Jalur Keputusan} & \textbf{Prediksi} \\
+\hline
+R1 & sks\_sem2 $\le$ 18,5 $\rightarrow$ failed\_courses $\le$ 0,5 $\rightarrow$ ips\_sem1 $\le$ 3,01 & Tepat Waktu \\
+R2 & sks\_sem2 $\le$ 18,5 $\rightarrow$ failed\_courses $\le$ 0,5 $\rightarrow$ ips\_sem1 $>$ 3,01 & Tepat Waktu \\
+R3 & sks\_sem2 $\le$ 18,5 $\rightarrow$ failed\_courses $>$ 0,5 & Tepat Waktu \\
+R4 & sks\_sem2 $>$ 18,5 $\rightarrow$ sks\_sem3 $\le$ 18,5 $\rightarrow$ ips\_std $\le$ 0,29 & Tidak Tepat \\
+R5 & sks\_sem2 $>$ 18,5 $\rightarrow$ sks\_sem3 $\le$ 18,5 $\rightarrow$ ips\_std $>$ 0,29 & Tidak Tepat \\
+R6 & sks\_sem2 $>$ 18,5 $\rightarrow$ sks\_sem3 $>$ 18,5 $\rightarrow$ avg\_ips $\le$ 3,31 & Tepat Waktu \\
+R7 & sks\_sem2 $>$ 18,5 $\rightarrow$ sks\_sem3 $>$ 18,5 $\rightarrow$ avg\_ips $>$ 3,31 & Tepat Waktu \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Aturan R4 dan R5 mendefinisikan pola \textbf{``\emph{overload then collapse}''}: mahasiswa yang mengambil SKS tinggi pada semester 2 ($>$18,5) namun menurun drastis pada semester 3 ($\le$18,5) cenderung tidak lulus tepat waktu. Pola ini mengindikasikan ketidakmampuan mahasiswa mempertahankan beban studi tinggi secara berkelanjutan.
+
+Analisis \emph{Feature Importance} menggunakan \emph{Mean Decrease in Impurity} (MDI) menunjukkan dominasi fitur beban studi:
+
+\begin{center}
+\begin{tabular}{lr}
+\hline
+\textbf{Fitur} & \textbf{Importance (MDI)} \\
+\hline
+sks\_sem2 & 0,558 \\
+sks\_sem3 & 0,361 \\
+ips\_std  & 0,047 \\
+avg\_ips  & 0,017 \\
+failed\_courses & 0,012 \\
+ips\_sem1 & 0,004 \\
+\hline
+\end{tabular}
+\end{center}
+
+Kombinasi \texttt{sks\_sem2} dan \texttt{sks\_sem3} menyumbang 91,9\% dari total \emph{importance}, menunjukkan bahwa beban studi lebih 13 kali lebih dominan dibanding nilai akademik (IPS) dalam menentukan ketepatan waktu kelulusan. Temuan ini sejalan dengan studi Vega-Rebolledo dkk. \cite{ref9} yang menekankan pentingnya lintasan beban akademik awal, serta Hern\'andez-Herrera dkk. \cite{ref20} tentang personalisasi pembelajaran berbasis pola pengambilan kredit. Delapan fitur lainnya (termasuk \texttt{sks\_completion\_ratio}, \texttt{ips\_trend}, dan \texttt{repeated\_courses}) memiliki \emph{importance} 0,0 yang berarti tidak digunakan oleh model dalam pengambilan keputusan.
+
+\subsection{Analisis Generalisasi: Validasi Stratified vs Temporal}
+
+Temuan paling kritis dalam penelitian ini terungkap ketika model 01-Tuned yang sama dievaluasi menggunakan \emph{temporal validation split}. Tabel~\ref{tab:generalization} menyajikan perbandingan yang mencolok antara kedua skenario validasi.
+
+\begin{table}[t]
+\caption{Perbandingan Stratified vs Temporal Validation (Model 01-Tuned)}
+\label{tab:generalization}
+\begin{center}
+\small
+\begin{tabular}{lccc}
+\hline
+\textbf{Metrik} & \textbf{Stratified} & \textbf{Temporal} & \textbf{Delta} \\
+\hline
+Accuracy    & 0,9754 & 0,7662 & $-$0,2092 \\
+Precision(0)& 0,9231 & 0,0000 & $-$0,9231 \\
+Recall(0)   & 0,8571 & 0,0000 & $-$0,8571 \\
+F1(0)       & 0,8889 & 0,0000 & $-$0,8889 \\
+AUC         & 0,9550 & 0,7098 & $-$0,2452 \\
+\hline
+\end{tabular}
+\end{center}
+\end{table}
+
+Model memprediksi \textbf{seluruh 231 mahasiswa pada temporal test sebagai ``Tepat Waktu''}, menghasilkan 0 \emph{True Positive} (kelas minoritas) dan 54 \emph{False Negative}. Dengan kata lain, tidak ada satu pun mahasiswa berisiko tidak tepat waktu yang terdeteksi -- model kehilangan fungsinya sebagai sistem peringatan dini. Analisis lebih lanjut mengidentifikasi tiga faktor penyebab kegagalan ini:
+
+Pertama, \textbf{ketidakseimbangan sampel temporal}. Data pelatihan temporal hanya mengandung 14 sampel negatif (3,7\%) dari total 377 mahasiswa, jauh lebih sedikit dibanding 54 sampel negatif (11,1\%) pada \emph{stratified training set}. Dengan \texttt{min\_samples\_leaf}=10, model tidak memiliki cukup sampel minoritas untuk membentuk daun yang memprediksi kelas ``Tidak Tepat''. Akibatnya, seluruh 7 daun pohon \emph{default} ke kelas mayoritas \cite{ref22}.
+
+Kedua, \textbf{pergeseran distribusi} (\emph{distribution shift}) pada beban studi. Rata-rata \texttt{sks\_sem2} meningkat secara signifikan dari sekitar 11 SKS pada angkatan 2015--2021 menjadi sekitar 19 SKS pada angkatan 2022--2023. Pergeseran ini mencerminkan perubahan kebijakan kurikulum dan pola pengambilan kredit yang membuat model yang dilatih pada data historis tidak relevan untuk populasi baru \cite{ref18}.
+
+Ketiga, \textbf{batasan struktural algoritma}. Parameter min samples leaf yang optimal pada \emph{stratified split} menjadi kontraproduktif pada \emph{temporal split} karena menghalangi pembentukan daun minoritas. Pola ``\emph{overload then collapse}'' yang sempurna mengidentifikasi 52 dari 54 mahasiswa tidak tepat waktu di \emph{temporal test} (presisi 100\%) tidak pernah dipelajari model karena tidak ada contoh pola tersebut yang cukup dalam data pelatihan historis.
+
+Untuk menguji keandalan statistik, dilakukan \emph{10x10 Repeated Stratified K-Fold Cross-Validation} yang menghasilkan 100 evaluasi independen. Rata-rata \emph{F1(0)} tercatat sebesar 0,833 dengan interval kepercayaan 95\% berkisar antara 0,814 hingga 0,851. Perbandingan ini menunjukkan bahwa \emph{single stratified split} (F1(0)=0,889) \textbf{overestimasi} performa rata-rata sebesar 5,6\% relatif terhadap \emph{CV mean}. Temuan ini menegaskan pentingnya validasi berulang untuk menghindari bias optimistik pada \emph{single train-test split} \cite{ref28}, \cite{ref29}.
+
+\subsection{Permutation Importance dan Stabilitas Aturan}
+
+Untuk memverifikasi bahwa \emph{feature importance} yang dilaporkan MDI tidak bias terhadap fitur dengan jumlah nilai unik yang banyak, dilakukan \emph{permutation importance} sebagai metode validasi silang. Koefisien korelasi Spearman antara MDI dan \emph{permutation importance} mencapai $r = 0,675$ ($p = 0,008$), menunjukkan kesesuaian yang baik antar metode \cite{ref11}. Fitur \texttt{sks\_sem2} dan \texttt{sks\_sem3} tetap mendominasi pada kedua metode, mengonfirmasi bahwa tidak ada sinyal tersembunyi yang terlewatkan oleh MDI.
+
+Pengujian stabilitas struktur pohon dilakukan dengan melatih ulang model pada 10 \emph{folds} berbeda dalam skenario \emph{stratified full-dataset training}. Simpul akar (\emph{root split}) \texttt{sks\_sem2} stabil muncul pada seluruh 10 \emph{folds}, menunjukkan bahwa fitur ini secara fundamental merupakan pemisah terbaik antara mahasiswa tepat waktu dan tidak tepat waktu, terlepas dari komposisi sampel. Jumlah daun rata-rata adalah 7,2 dengan standar deviasi 0,42, mengindikasikan konsistensi arsitektur pohon yang tinggi \cite{ref22}.
+
+Pola aturan ``\emph{overload then collapse}'' (R4 dan R5) mencakup 96,3\% dari \emph{False Negative} pada \emph{temporal test} (52 dari 54 mahasiswa tidak tepat waktu) dengan presisi 100\% ketika diuji secara manual. Meskipun model gagal mempelajari pola ini secara otomatis karena keterbatasan sampel temporal, aturan ini dapat digunakan secara independen sebagai indikator peringatan dini yang sederhana namun efektif.
+
+\section{Kesimpulan dan Saran}
+\label{sec:conclusion}
+
+Penelitian ini bertujuan untuk mengevaluasi penyeimbangan performa prediktif dan interpretabilitas model \emph{Decision Tree} untuk prediksi ketepatan kelulusan mahasiswa, dengan tekanan khusus pada pentingnya strategi validasi yang realistis. Berdasarkan hasil eksperimen dan analisis yang telah dilakukan, diperoleh tiga kesimpulan utama yang menjawab pertanyaan penelitian.
+
+Pertama, terhadap \textbf{RQ1} (dampak \emph{hyperparameter tuning} pada performa), \texttt{GridSearchCV} dengan 240 kombinasi berhasil mengidentifikasi konfigurasi optimal \texttt{max\_depth}=3, \texttt{min\_samples\_leaf}=10, dan \texttt{criterion='gini'}. Model terbaik mencapai \emph{F1(0)} sebesar 0,889 pada \emph{stratified split}, meningkat signifikan dari \emph{baseline} awal. Namun, konvergensi tiga pendekatan tuning yang berbeda pada nilai \emph{F1(0)} yang identik mengonfirmasi adanya \emph{ceiling effect} pada model \emph{Decision Tree} tunggal. Batas atas performa model ini dibatasi oleh jumlah sampel kelas minoritas yang tersedia (68 sampel) dan ketidakmampuan pohon biner menangkap interaksi fitur yang kompleks.
+
+Kedua, terhadap \textbf{RQ2} (dampak pada interpretabilitas), \emph{hyperparameter tuning} berhasil menekan kedalaman pohon dari 8 level (24 daun) pada \emph{baseline} menjadi hanya 3 level (7 daun) pada model terbaik. Reduksi ini menghasilkan 7 aturan keputusan yang dapat dipahami secara langsung oleh pemangku kepentingan institusi tanpa keahlian teknis. Temuan menarik adalah dominasi fitur beban studi (\texttt{sks\_sem2}=55,8\% dan \texttt{sks\_sem3}=36,1\%) yang 13 kali lebih berpengaruh dibanding nilai akademik (IPS), mengindikasikan bahwa pola pengambilan kredit merupakan indikator yang lebih andal untuk prediksi dini dibanding nilai akademik.
+
+Ketiga, terhadap \textbf{RQ3} (generalisasi pada validasi berbeda), jawaban yang diperoleh bersifat kritis: model \emph{Decision Tree} yang di-tuning tidak dapat menggeneralisasi pada validasi temporal, dengan \emph{F1(0)} anjlok dari 0,889 (stratified) menjadi 0,000 (temporal). Kegagalan ini disebabkan oleh tiga faktor yang saling terkait: (1) ketidakseimbangan sampel temporal yang ekstrem (3,7\% kelas minoritas), (2) pergeseran distribusi beban studi antar angkatan, dan (3) batasan struktural \texttt{min\_samples\_leaf} yang mencegah pembentukan daun minoritas. Temuan ini menegaskan bahwa \emph{stratified random split} memberikan estimasi performa yang terlalu optimistik dan tidak merepresentasikan skenario implementasi nyata.
+
+\textbf{Keterbatasan} penelitian ini perlu diakui. Dataset hanya mencakup 68 sampel kelas minoritas (11,2\%) dari dua program studi di satu institusi, sehingga generalisasi temuan ke institusi lain memerlukan validasi lebih lanjut. Pergeseran distribusi SKS antar angkatan membatasi kemampuan model untuk bertahan tanpa \emph{retraining}. Model \emph{Decision Tree} tunggal juga memiliki \emph{ceiling} performa yang telah tercapai, sehingga peningkatan lebih lanjut memerlukan pendekatan yang berbeda.
+
+\textbf{Saran penelitian lanjutan} meliputi: (1) penerapan teknik penyeimbangan data seperti SMOTE pada skenario temporal untuk mengatasi ketidakseimbangan sampel; (2) eksplorasi \emph{ensemble methods} seperti \emph{Random Forest} atau \emph{Gradient Boosting} yang lebih stabil pada data tidak seimbang; (3) \emph{retraining} berkala model setiap tahun ajaran baru untuk mengakomodasi pergeseran distribusi; (4) sistem \emph{rule-based hybrid} yang mengintegrasikan aturan ``\emph{overload then collapse}'' (sks\_sem2 $>$ 18,5 DAN sks\_sem3 $\le$ 18,5) sebagai \emph{early-warning} sederhana dengan presisi tinggi; serta (5) pengembangan model terpisah untuk setiap program studi mengingat perbedaan struktur kredit antara D3 dan S1.
+
+\section*{Ucapan Terima Kasih}
+Penulis mengucapkan terima kasih kepada Universitas Logistik dan Bisnis Internasional (ULBI) yang telah mendukung penelitian ini melalui hibah akademis mata kuliah Data Mining Semester Genap 2026, serta kepada seluruh dosen dan staf Program Studi DIV Teknik Informatika atas bimbingan dan fasilitas yang diberikan.
+
+
+\begin{thebibliography}{00}
+
+\bibitem{ref1} S. Boujmiraz, H. Darhmaoui, and A. Drissi el maliani, ``Predicting student performance: A comprehensive review of machine learning, deep learning, and explainable AI approaches,'' \emph{Comput. Educ. Artif. Intell.}, vol. 10, p. 100548, 2026, doi: 10.1016/j.caeai.2026.100548.
+
+\bibitem{ref2} M. M. Islam, F. H. Sojib, M. F. H. Mihad, M. Hasan, and M. Rahman, ``The integration of explainable AI in Educational Data mining for student academic performance prediction and support system,'' \emph{Telemat. Informatics Rep.}, vol. 18, p. 100203, 2025, doi: 10.1016/j.teler.2025.100203.
+
+\bibitem{ref3} K. Okoye, J. T. Nganji, J. Escamilla, and S. Hosseini, ``Machine learning model (RG-DMML) and ensemble algorithm for prediction of students' retention and graduation in education,'' \emph{Comput. Educ. Artif. Intell.}, vol. 6, p. 100205, 2024, doi: 10.1016/j.caeai.2024.100205.
+
+\bibitem{ref4} S. Sarker, M. K. Paul, S. T. H. Thasin, and M. A. M. Hasan, ``Analyzing students' academic performance using educational data mining,'' \emph{Comput. Educ. Artif. Intell.}, vol. 7, p. 100263, 2024, doi: 10.1016/j.caeai.2024.100263.
+
+\bibitem{ref5} N. Drydakis, ``The formation of AI Capital in higher education: Enhancing students' academic performance and employment rates,'' \emph{Comput. Educ. Artif. Intell.}, vol. 9, p. 100476, 2025, doi: 10.1016/j.caeai.2025.100476.
+
+\bibitem{ref6} M. Vaarma and H. Li, ``Predicting student dropouts with machine learning: An empirical study in Finnish higher education,'' \emph{Technol. Soc.}, vol. 76, p. 102474, 2024, doi: 10.1016/j.techsoc.2024.102474.
+
+\bibitem{ref7} A. M. Rabelo and L. E. Z\'{a}rate, ``A model for predicting dropout of higher education students,'' \emph{Data Sci. Manag.}, vol. 8, no. 1, pp. 72--85, 2025, doi: 10.1016/j.dsm.2024.07.001.
+
+\bibitem{ref8} A. K. F. Loder, ``Master's programs' dropout and graduation clusters in a university system with a multiple enrollment policy,'' \emph{Int. J. Educ. Res. Open}, vol. 8, p. 100423, 2025, doi: 10.1016/j.ijedro.2024.100423.
+
+\bibitem{ref9} I. Vega-Rebolledo, A. J. S\'{a}nchez-Garc\'{i}a, J. J. Mu\~{n}oz Le\'{o}n, J. O. Ochar\'{a}n-Hern\'{a}ndez, and K. Cort\'{e}s-Verd\'{i}n, ``Applying survival analysis and Explainable Artificial Intelligence to understand academic success in software engineering students,'' \emph{Array}, vol. 28, p. 100540, 2025, doi: 10.1016/j.array.2025.100540.
+
+\bibitem{ref10} M. \'{A}. Rodr\'{i}guez-Ortiz, P. C. Santana-Mancilla, and L. E. Anido-Rif\'{o}n, ``Machine Learning and Generative AI in Learning Analytics for Higher Education: A Systematic Review of Models, Trends, and Challenges,'' \emph{Appl. Sci.}, vol. 15, no. 15, p. 8679, 2025, doi: 10.3390/app15158679.
+
+\bibitem{ref11} F. A. Hasan, L. O. Al-Bassam, and S. A. Al-Sabea, ``Severity Classification of Anxiety and Depression Using Generalized Anxiety Disorder Scale and Patient Health Questionnaire: National Cross-Sectional Study Applying Classification and Regression Tree Models,'' \emph{JMIR Public Health Surveill.}, vol. 11, p. e72591, 2025, doi: 10.2196/72591.
+
+\bibitem{ref12} X. Wang, Y. Zhang, Z. Lin, and L. Zhao, ``A machine learning-quantitative microbial risk assessment (ML-QMRA) framework for predicting potential health risks from pathogens in drinking water sources,'' \emph{Biocontaminant}, vol. 2, p. e012, 2026, doi: 10.48130/biocontam-0026-0009.
+
+\bibitem{ref13} H. Zhang and J. Yu, ``Data-Driven Prediction of Root Zone Soil Moisture Increase Dynamics Using Recursive Partitioning Trees,'' \emph{Air Soil Water Res.}, vol. 19, p. 11786221261429782, 2026, doi: 10.1177/11786221261429782.
+
+\bibitem{ref14} P. Peykani, M. P. Foroushany, C. Tanasescu, M. Sargolzaei, and H. Kamyabfar, ``Evaluation of Cost-Sensitive Learning Models in Forecasting Business Failure of Capital Market Firms,'' \emph{Mathematics}, vol. 13, no. 3, p. 368, 2025, doi: 10.3390/math13030368.
+
+\bibitem{ref15} R. A. Carrasco, S. V. Fuentes, and M. A. Gatica, ``Early prediction of pressure injury risk in hospitalized patients using supervised machine learning models based on nursing records,'' \emph{Sci. Rep.}, vol. 16, p. 35709, 2026, doi: 10.1038/s41598-026-35709-w.
+
+\bibitem{ref16} N. P. N. Fauzi, S. Khomsah, and A. D. P. Wicaksono, ``Penerapan Feature Engineering dan Hyperparameter Tuning untuk Meningkatkan Akurasi Model Random Forest pada Klasifikasi Risiko Kredit,'' \emph{J. Teknol. Inf. Ilmu Komput.}, vol. 12, no. 1, pp. 847--856, 2025, doi: 10.25126/jtiik.2025128472.
+
+\bibitem{ref17} H. E. L. Cagnini, S. C. N. D. D\^{o}res, A. A. Freitas, and R. C. Barros, ``A survey of evolutionary algorithms for supervised ensemble learning,'' \emph{ACM Comput. Surv.}, vol. 55, no. 12, pp. 1--36, 2023, doi: 10.1145/3571155.
+
+\bibitem{ref18} C. K. Chiu, M. S. Wong, and T. H. Cheng, ``A holistic exploration of student attitudes toward AI use in higher education: an international comparison,'' \emph{Cogent Educ.}, vol. 12, no. 1, p. 2571691, 2025, doi: 10.1080/2331186X.2025.2571691.
+
+\bibitem{ref19} B. Crawford, ``The impact of artificial intelligence on task performance and decision-making: Empirical evidence on generation Z,'' \emph{Hum. Technol.}, vol. 21, no. 3, pp. 620--639, 2025, doi: 10.14254/1795-6889.2025.21-3.7.
+
+\bibitem{ref20} J. R. Hern\'{a}ndez-Herrera, J. Ortiz-Bejar, and J. Ortiz-Bejar, ``Adaptive and Personalized Learning in Higher Education: An Artificial Intelligence-Based Approach,'' \emph{Educ. Sci.}, vol. 16, no. 1, p. 109, 2026, doi: 10.3390/educsci16010109.
+
+\bibitem{ref21} F. Fernandes, P. Santos, L. S\'{a}, and J. Neves, ``Contributions of Artificial Intelligence to Decision Making in Nursing: A Scoping Review Protocol,'' \emph{Nurs. Rep.}, vol. 13, no. 1, pp. 78--93, 2025, doi: 10.3390/nursrep13010007.
+
+\bibitem{ref22} S. R. Patel and H. L. Mehta, ``Large Language Models and Responsible AI in Clinical Decision Support Systems: A Systematic Literature Review,'' \emph{Int. J. Hum.--Comput. Interact.}, vol. 42, no. 3, pp. 2690--2708, 2026, doi: 10.1080/10447318.2026.2690095.
+
+\bibitem{ref23} J. Xue, G. He, and Q. Chen, ``Exploration of the correlation between clinical indicators and prognosis in hospitalized children with pneumonia and construction of a risk prediction model based on machine learning algorithms,'' \emph{Front. Med.}, vol. 13, p. 1747935, 2026, doi: 10.3389/fmed.2026.1747935.
+
+\bibitem{ref24} P. Koukaras and C. Tjortjis, ``Data Preprocessing and Feature Engineering for Data Mining: Techniques, Tools, and Best Practices,'' \emph{AI}, vol. 6, no. 10, p. 257, 2025, doi: 10.3390/ai6100257.
+
+\bibitem{ref25} T. Islam, ``A comparative study of machine learning models for predicting Aman rice yields in Bangladesh,'' \emph{Heliyon}, vol. 10, no. 17, p. e40764, 2024, doi: 10.1016/j.heliyon.2024.e40764.
+
+\bibitem{ref26} R. A. Smith and L. K. Johnson, ``Addressing Missing Data in Surveys and Implementing Imputation Methods: A Practical Framework,'' \emph{Sociol. Methods Res.}, vol. 53, no. 2, pp. 482--501, 2024, doi: 10.1177/00491241241021482.
+
+\bibitem{ref27} J. Hoyos-Osorio, A. Alvarez-Meza, G. Daza-Santacoloma, A. Orozco-Gutierrez, and C. Castellanos-Dominguez, ``Relevant information undersampling to support imbalanced data classification,'' \emph{Neurocomputing}, vol. 436, pp. 136--146, 2021, doi: 10.1016/j.neucom.2021.01.033.
+
+\bibitem{ref28} C. Gourdeau, C. L. Gourdeau, P. J. Bernier, and R. Laforce, ``Enhanced diagnostic interpretation of the MoCA using machine learning,'' \emph{Front. Neurosci.}, vol. 20, p. 1679649, 2026, doi: 10.3389/fnins.2026.1679649.
+
+\bibitem{ref29} L. Y. Chen, S. H. Song, and J. P. Rao, ``Improving the Diagnosis of Systemic Lupus Erythematosus with Machine Learning Algorithms Based on Real-World Data,'' \emph{Mathematics}, vol. 12, no. 18, p. 2849, 2024, doi: 10.3390/math12182849.
+
+\bibitem{ref30} K. P. Kim and J. H. Park, ``XGBoost-Based Very Short-Term Load Forecasting Using Day-Ahead Load Forecasting Results,'' \emph{Electronics}, vol. 14, no. 18, p. 3747, 2025, doi: 10.3390/electronics14183747.
+
+\end{thebibliography}
+
+\begin{IEEEbiographynophoto}{Viola Septianti Elsiana} adalah mahasiswi Program Studi DIV Teknik Informatika, Universitas Logistik dan Bisnis Internasional (ULBI), Bandung, Indonesia. Bidang penelitiannya mencakup data mining, machine learning, dan penerapan artificial intelligence dalam educational data mining untuk prediksi akademik mahasiswa. Viola merupakan penulis korespondensi pada penelitian ini dan berkontribusi dalam perancangan metodologi CRISP-DM, preprocessing data, serta interpretasi hasil evaluasi model.
+\end{IEEEbiographynophoto}
+
+\begin{IEEEbiographynophoto}{Muhammad Saladin Eka Septian} adalah mahasiswa Program Studi DIV Teknik Informatika, Universitas Logistik dan Bisnis Internasional (ULBI), Bandung, Indonesia. Fokus penelitiannya meliputi hyperparameter tuning algoritma machine learning, analisis data akademik, dan pengembangan sistem early-warning berbasis decision tree. Saladin berkontribusi dalam implementasi eksperimen modeling, optimasi GridSearchCV, dan validasi silang model.
+\end{IEEEbiographynophoto}
+
+\begin{IEEEbiographynophoto}{Muhammad Hisyam Najwan} adalah mahasiswa Program Studi DIV Teknik Informatika, Universitas Logistik dan Bisnis Internasional (ULBI), Bandung, Indonesia. Minat penelitiannya mencakup data preprocessing, feature engineering, dan evaluasi performa model klasifikasi pada data tidak seimbang. Hisyam berkontribusi dalam ekstraksi dan pembersihan dataset akademik, koreksi anomali SKS kumulatif, serta analisis temporal validation.
+\end{IEEEbiographynophoto}
+
+\EOD
+
+\end{document}
