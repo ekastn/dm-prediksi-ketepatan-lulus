@@ -1,0 +1,27 @@
+# LaTeX build artifacts
+*.aux
+*.log
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.blg
+*.nav
+*.snm
+*.vrb
+*.bcf
+*.run.xml
+
+# Font files (bundled with IEEE template)
+*.pfb
+*.tfm
+*.map
+*.fd
+
+# Build output directories
+aux/
+out/

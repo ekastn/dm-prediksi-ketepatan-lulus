@@ -2,6 +2,8 @@
 
 **Balancing Performance and Interpretability Through Hyperparameter Tuning of Decision Trees for Student Graduation Prediction**
 
+**Pengaruh Hyperparameter Tuning terhadap Kinerja dan Interpretabilitas Model Decision Tree untuk Prediksi Ketepatan Kelulusan Mahasiswa**
+
 ---
 
 # Research Questions
